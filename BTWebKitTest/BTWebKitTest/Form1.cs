@@ -9,9 +9,12 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using CefSharp;
 using InTheHand.Net.Sockets;
+using InTheHand.Net;
 using InTheHand.Net.Bluetooth;
 using Json;
 using System.IO;
+
+// GUID: {EBB4AF8E-E8F1-46A2-9B52-9980FD3CE6DC}
 
 namespace BTWebKitTest
 {
@@ -48,6 +51,171 @@ namespace BTWebKitTest
             class PluginsResponse
             {
                 public ICollection<PluginInfo> plugins { get; set; }
+            }
+
+            class BTConnectInfo
+            {
+                public String handler;
+                public BluetoothListener listener;
+            }
+
+            void listenCallback(IAsyncResult result) {
+                log(this, "Incoming connection: " + result.IsCompleted+", "+result.AsyncState);
+                BTConnectInfo ctx = (BTConnectInfo)result.AsyncState;
+                try
+                {
+                    log(this, "Pending: " + ctx.listener.Pending());
+                    var client = ctx.listener.EndAcceptBluetoothClient(result);
+                    log(this, "Have client: " + client.RemoteMachineName);
+                    var stream = client.GetStream();
+                    log(this, "Have stream: " + stream);
+                    var reader = new BinaryReader(stream, System.Text.Encoding.UTF8);
+                    string data = null;
+
+                    try
+                    {
+                        while ((data = reader.ReadString()) != null)
+                        {
+                            log(this, "Got data: " + data);
+                            if ("" == data)
+                            {
+                                log(this, "EOS detected");
+                                break;
+                            }
+                            object jsResult = parent.events.call(ctx.handler, false, null, "'" + client.RemoteEndPoint.Address.ToString() + "'", data);
+                            int res = 0;
+                            if (null != jsResult && jsResult is Int32)
+                            {
+                                res = (int)jsResult;
+                            }
+                            log(this, "Writing response: " + res);
+                            stream.WriteByte((byte)res);
+                            stream.Flush();
+                        }
+                    }
+                    catch (Exception e) { }
+                    client.Close();
+                    ctx.listener.BeginAcceptBluetoothClient(new AsyncCallback(listenCallback), ctx);
+                    log(this, "Remote connection finished");
+                }
+                catch (Exception e)
+                {
+                    log(this, "Error: " + e);
+                    //parent.events.call(ctx.handler, true, "Error opening port", null);
+                }
+            }
+
+            class BTSendContext
+            {
+                public string data;
+                public Guid guid;
+                public BluetoothAddress addr;
+                public BluetoothClient client;
+                public string handler;
+            }
+
+            private void onServiceRecordParse(IAsyncResult result)
+            {
+                log(this, "Parse: " + result.AsyncState + ", " + result.IsCompleted);
+                BTSendContext ctx = (BTSendContext)result.AsyncState;
+                try
+                {
+                    log(this, "Found, connecting: " + ctx.guid);
+                    ctx.client.Connect(ctx.addr, ctx.guid);
+                    log(this, "Connected");
+                    var stream = ctx.client.GetStream();
+                    log(this, "Connect: " + ctx.addr + " done: "+ctx.data.Length);
+//                    byte[] b1 = System.Text.Encoding.UTF8.GetBytes(ctx.data);
+                    BinaryWriter writer = new BinaryWriter(stream, System.Text.Encoding.UTF8);
+                    writer.Write(ctx.data);
+                    int res = stream.ReadByte();
+                    writer.Write(0); // EOS
+                    stream.Close();
+                    log(this, "Closed: " + res + " done");
+                    parent.events.call(ctx.handler, true, null, ""+res);
+                }
+                catch (Exception e)
+                {
+                    log(this, "Error: " + e);
+                    parent.events.call(ctx.handler, true, "Error opening port", null);
+                }
+            }
+
+            public void send(String device, String uuid, String remote, String data, String handler) 
+            {
+                try
+                {
+                    foreach (BluetoothRadio radio in BluetoothRadio.AllRadios)
+                    {
+                        if (radio.LocalAddress.ToString().Equals(device))
+                        {
+                            // Found
+                            var client = radio.StackFactory.CreateBluetoothClient();
+                            BluetoothAddress addr = null;
+                            InTheHand.Net.Sockets.BluetoothDeviceInfo[] infos = client.DiscoverDevices(99, true, true, false);
+                            var guid = new Guid(uuid);
+                            foreach (var info in infos)
+                            {
+                                if (info.DeviceAddress.ToString().Equals(remote))
+                                {
+                                    addr = info.DeviceAddress;
+                                    var ctx = new BTSendContext();
+                                    ctx.addr = addr;
+                                    ctx.data = data;
+                                    ctx.guid = guid;
+                                    ctx.handler = handler;
+                                    ctx.client = client;
+                                    info.BeginGetServiceRecords(guid, new AsyncCallback(onServiceRecordParse), ctx);
+                                    return;
+                                }
+                            }
+                            if (null == addr)
+                            {
+                                log(this, "Device wasn't found: "+remote);
+                                parent.events.call(handler, true, "Device not found", null);
+                                return;
+                            }
+                            return;
+                        }
+                    }
+                    parent.events.call(handler, true, "Adapter not found", null);
+                }
+                catch (Exception e)
+                {
+                    log(this, "Error: " + e);
+                    parent.events.call(handler, true, "Error opening port", null);
+                }
+            }
+
+            public void listen(String device, String uuid, String handler, String connectHandler)
+            {
+                try
+                {
+                    foreach (BluetoothRadio radio in BluetoothRadio.AllRadios)
+                    {
+                        if (radio.LocalAddress.ToString().Equals(device))
+                        {
+                            // Found
+                            var guid = new Guid(uuid);
+                            log(this, "Found: " + radio.Name+", opening: "+guid);
+                            BluetoothListener listener = radio.StackFactory.CreateBluetoothListener(guid);
+                            var info = new BTConnectInfo();
+                            info.handler = connectHandler;
+                            info.listener = listener;
+                            listener.Start();
+                            listener.BeginAcceptBluetoothClient(new AsyncCallback(listenCallback), info);
+                            parent.events.call(handler, true, null, "true");
+                            log(this, "Open: " + radio.Name + " done");
+                            return;
+                        }
+                    }
+                    parent.events.call(handler, true, "Adapter not found", null);
+                }
+                catch (Exception e)
+                {
+                    log(this, "Error: " + e);
+                    parent.events.call(handler, true, "Error opening port", null);
+                }
             }
 
             public void enumeratePlugins(String handler) 
@@ -125,12 +293,23 @@ namespace BTWebKitTest
                 this.parent = main;
             }
 
-            public void call(String handler, bool last, String error, String obj)
+            public object call(String handler, bool last, String error, params String[] obj)
             {
-                Console.Out.WriteLine("call: " + obj);
-                parent.view.EvaluateScript(handler + "(" + (last ? "true" : "false") + ", " + 
-                    (null == error ? "null" : "'" + error + "'") + 
-                    ", "+(null == obj? "null": obj)+");");
+                string js = handler + "(" + (last ? "true" : "false") + ", " +
+                    (null == error ? "null" : "'" + error + "'");
+                if (null != obj)
+                {
+                    foreach (var one in obj)
+                    {
+                        js += ", " + (null == one ? "null" : one);
+                    }                    
+                }
+                object result = parent.view.EvaluateScript( js+");");
+                if (null != result)
+                {
+                    log(this, "Output result: "+result.GetType());
+                }
+                return result;
             }
 
         }
@@ -171,6 +350,11 @@ namespace BTWebKitTest
         private void Reload_Click(object sender, EventArgs e)
         {
             view.Reload(true);
+        }
+
+        public static void log(object call, string message)
+        {
+            Console.WriteLine("" + call.GetType().Name + ": " + message);
         }
     }
 }
