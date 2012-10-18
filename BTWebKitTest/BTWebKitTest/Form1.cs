@@ -328,11 +328,16 @@ namespace BTWebKitTest
             CEF.Initialize(settings);
             CefSharp.BrowserSettings bsettings = new BrowserSettings();
             bsettings.WebSecurityDisabled = true;
+            bsettings.ApplicationCacheDisabled = false;
+            bsettings.DatabasesDisabled = false;
+            bsettings.LocalStorageDisabled = false;
+            bsettings.PageCacheDisabled = false;
             bsettings.FileAccessFromFileUrlsAllowed = true;
             bsettings.XssAuditorEnabled = false;
             bsettings.DeveloperToolsDisabled = false;
             bsettings.UniversalAccessFromFileUrlsAllowed = true;
             bsettings.JavaScriptDisabled = false;
+            bsettings.LocalStorageDisabled = false;
             view = new CefSharp.WinForms.WebView("file:///./client/start.html", bsettings);
             bt.init(this);
             view.RegisterJsObject("bt", bt);

@@ -1,6 +1,10 @@
-var DeviceInfoPlugin = function () {
-    log('Dev info:', localStorage['test'], localStorage, localStorage.test);
-    localStorage['test'] = 'zzz';
-}
+(function() {
+var Plugin = function () {
+};
+Plugin.prototype = PluginStub.prototype;
 
-registerPlugin(new DeviceInfoPlugin());
+Plugin.pluginName = 'devinfo';
+Plugin.pluginDescription = 'Device Info';
+
+registerPlugin(Plugin);
+}).call();

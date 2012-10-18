@@ -1,5 +1,11 @@
-var MessagesPlugin = function () {
-
+(function() {
+var Plugin = function () {
 }
 
-registerPlugin(new MessagesPlugin());
+Plugin.prototype = PluginStub.prototype;
+
+Plugin.pluginName = 'messages';
+Plugin.pluginDescription = 'Messaging';
+
+registerPlugin(Plugin);
+}).call();

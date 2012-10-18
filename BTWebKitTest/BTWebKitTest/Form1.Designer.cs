@@ -48,7 +48,7 @@
             this.webPanelParent.RowCount = 2;
             this.webPanelParent.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.webPanelParent.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.webPanelParent.Size = new System.Drawing.Size(784, 565);
+            this.webPanelParent.Size = new System.Drawing.Size(1008, 733);
             this.webPanelParent.TabIndex = 0;
             // 
             // toolStrip1
@@ -58,7 +58,7 @@
             this.Reload});
             this.toolStrip1.Location = new System.Drawing.Point(0, 0);
             this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(784, 25);
+            this.toolStrip1.Size = new System.Drawing.Size(1008, 25);
             this.toolStrip1.TabIndex = 0;
             this.toolStrip1.Text = "toolStrip1";
             // 
@@ -84,7 +84,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(784, 565);
+            this.ClientSize = new System.Drawing.Size(1008, 733);
             this.Controls.Add(this.webPanelParent);
             this.Name = "Main";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
