@@ -32,3 +32,10 @@
 .plugin-sub-caption {
     font-size: 0.6em;
 }
+
+#alerts {
+    position: fixed;
+    right: 1em;
+    bottom: 1em;
+    width: 400px;
+}

@@ -11,6 +11,7 @@ var App = function() {
     this.uuid = '{EBB4AF8E-E8F1-46A2-9B52-9980FD3CE6DC}';
     this.fnIndex = 0;
     this.createUI();
+    this.showAlert('Starting...', 'Error!');
     this.initDB(function(err) {
         if (err) {
             return this.showError(err);
@@ -42,8 +43,23 @@ App.prototype.initDevices = function () {
     }.bind(this)));
 };
 
+App.prototype.showAlert = function (message, title, config) {
+    if (!config) {
+        config = {};
+    }
+    var div = $(document.createElement('div')).appendTo($('#alerts')).addClass('alert alert-'+(config.severity || 'info'));
+    $(document.createElement('button')).appendTo(div).addClass('close').attr({'data-dismiss': 'alert'}).html('&times;');
+    $(document.createElement('h4')).appendTo(div).text(title || 'Untitled');
+    $(document.createElement('span')).appendTo(div).text(message);
+    if (!config.persistent) {
+        setTimeout(function() {
+            div.remove();
+        }.bind(this), 5000);
+    }
+};
+
 App.prototype.showError = function (message) {
-    alert(message);
+    this.showAlert(message, 'Error!', {severity: 'error', persistent: true});
 }
 
 App.prototype.initDB = function (handler) {
