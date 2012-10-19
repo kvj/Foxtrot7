@@ -11,7 +11,7 @@ var App = function() {
     this.uuid = '{EBB4AF8E-E8F1-46A2-9B52-9980FD3CE6DC}';
     this.fnIndex = 0;
     this.createUI();
-    this.showAlert('Starting...', 'Error!');
+    this.showAlert('Starting...');
     this.initDB(function(err) {
         if (err) {
             return this.showError(err);
@@ -190,6 +190,10 @@ App.prototype.addPair = function(obj, handler) {
     return this._save('', 'pairs', obj, handler);
 };
 
+App.prototype.removePair = function(obj, handler) {
+    return this._remove('', 'pairs', obj, handler);
+};
+
 App.prototype.getPairs = function(handler) {
     return this._list('', 'pairs', handler);
 };
@@ -198,10 +202,30 @@ App.prototype.openTab = function(r, d, p) {
     var tabsContentDiv = $('#main-tabs-content');
     var listDiv = $('#pairs-list');
     var tabDiv = tabsContentDiv.children('#body'+p.pair.id);
+    var closeTab = function() {
+        this.notifyPlugin(p.pair.id, 'onHide');
+        this.notifyPlugin(p.pair.id, 'onClose');
+        tabDiv.remove();
+        listDiv.children('#list'+p.pair.id).removeClass('active');
+    }.bind(this);
+    var removeLink = function () {
+        this.removePair(p.pair, function(err) {
+            if (err) {
+                return this.showError(err);
+            }
+            closeTab();
+            this.notifyPlugin(p.pair.id, 'onStop');
+            this.reloadAddPairMenu();
+            return null;
+        }.bind(this));
+    }.bind(this);
     if (tabDiv.size() == 0) {
         // Create tab
         tabDiv = $('#tab-template').clone().attr('id', 'body'+p.pair.id).appendTo(tabsContentDiv);
         tabDiv.find('.plugin-caption').text(p.caption);
+        tabDiv.find('.plugin-close').on('click', closeTab);
+        tabDiv.find('.plugin-remove').on('click', removeLink);
+        this.notifyPlugin(p.pair.id, 'onRender', tabDiv);
     }
     // Check current selected
     var sel = listDiv.children('.active');
@@ -210,15 +234,16 @@ App.prototype.openTab = function(r, d, p) {
             // Already selected
             return;
         }
-        // TODO: Fire unselect
+        this.notifyPlugin(sel.attr('data-pair'), 'onHide');
         sel.removeClass('active');
     }
     tabsContentDiv.children().removeClass('active');
     tabDiv.addClass('active');
     listDiv.children('#list'+p.pair.id).addClass('active');
+    this.notifyPlugin(p.pair.id, 'onShow');
 };
 
-App.prototype.reloadAddPairMenu = function() {
+App.prototype.reloadAddPairMenu = function(handler) {
     var findInArray = function(arr) {
         var pairs = [];
         for (var i = 1; i<arguments.length-1; i+=2) {
@@ -250,6 +275,7 @@ App.prototype.reloadAddPairMenu = function() {
             var r = findInArray(this.radios, 'address', p.radio);
             var obj = {address: p.radio, name: p.radio, devices: []};
             if (r) { // Append name
+                obj.radio = r;
                 obj.name = r.name;
             }
             result.push(obj);
@@ -264,6 +290,7 @@ App.prototype.reloadAddPairMenu = function() {
                     dev = {address: p.device, name: p.device, plugins: []};
                     if (d) {
                         dev.name = d.name;
+                        dev.device = d;
                     }
                     obj.devices.push(dev);
                 }
@@ -271,6 +298,7 @@ App.prototype.reloadAddPairMenu = function() {
                 var plugin = findInArray(this.plugins, 'pluginName', pl.name);
                 if (plugin) {
                     pl.caption = plugin.pluginDescription;
+                    pl.plugin = plugin;
                 }
                 pl.pair = p;
                 dev.plugins.push(pl);
@@ -281,6 +309,7 @@ App.prototype.reloadAddPairMenu = function() {
     var pairItem = function(r, d, p) {
 //        log('Pair item', r, d, p);
         var li = $(document.createElement('li')).attr('id', 'list'+p.pair.id);
+        li.attr('data-pair', p.pair.id);
         var a = $(document.createElement('a')).attr('href', '#').text(p.caption).appendTo(li);
         a.on('click', function(evt) {
             this.openTab(r, d, p);
@@ -296,6 +325,7 @@ App.prototype.reloadAddPairMenu = function() {
                 if (err) {
                     return this.showError(err);
                 }
+                this.startPlugin(r.address, d.address, p, obj);
                 return this.reloadAddPairMenu();
             }.bind(this));
         }.bind(this));
@@ -338,6 +368,9 @@ App.prototype.reloadAddPairMenu = function() {
                 for (var k = 0; k<d.plugins.length; k++) {
                     var p = d.plugins[k];
                     list.append(pairItem(r, d, p));
+                    if (handler) {
+                        handler(r, d, p);
+                    }
                 };
             };
         };
@@ -357,18 +390,47 @@ PluginStub.prototype.init = function(app, radio, device){
     this.radio = radio;
     this.device = device;
 };
-PluginStub.prototype.render = function(div) {};
-PluginStub.prototype.show = function() {};
-PluginStub.prototype.hide = function() {};
-PluginStub.prototype.close = function() {};
-PluginStub.prototype.message = function(message) {};
+PluginStub.prototype.onStart = function() {};
+PluginStub.prototype.onStop = function() {};
+PluginStub.prototype.onRender = function(div) {};
+PluginStub.prototype.onShow = function() {};
+PluginStub.prototype.onHide = function() {};
+PluginStub.prototype.onClose = function() {};
+PluginStub.prototype.onMessage = function(message) {};
+
+App.prototype.notifyPlugin = function (id, type) {
+    if (!id || !this.running[id]) {
+        this.showError('Plugin is not running');
+        return null;
+    }
+    var instance = this.running[id];
+    var args = [];
+    if (!instance[type] || !instance[type].apply) {
+        log('Error calling', type);
+        this.showError('Plugin error');
+        return null;
+    }
+    for (var i = 2; i<arguments.length; i++) {
+        args.push(arguments[i]);
+    }
+    return instance[type].apply(instance, args);
+}
+
+App.prototype.startPlugin = function (radio, device, plugin, pair) {
+    var instance = new plugin();
+    instance.init(this, radio, device);
+    instance.id = pair.id;
+    instance.plugin = plugin.pluginName;
+    this.running[pair.id] = instance;
+    instance.onStart();
+}
 
 App.prototype.loadPlugins = function () {
     this.plugins = [];
+    this.running = {};
     window.registerPlugin = function(plugin) {
         log('Plugin loaded:', plugin);
         this.plugins.push(plugin);
-        this.reloadAddPairMenu();
     }.bind(this);
     bt.enumeratePlugins(this.h(function(err, data) {
         if (err) {
@@ -378,7 +440,12 @@ App.prototype.loadPlugins = function () {
         for (var i = 0; i<data.plugins.length; i++) {
             urls.push('plugins/'+data.plugins[i].file);
         }
-        yepnope({load: urls});
+        yepnope({load: urls, complete: function(){
+            log('All plugins loaded:', this.plugins.length);
+            this.reloadAddPairMenu(function (r, d, p) {
+                this.startPlugin(r.address, d.address, p.plugin, p.pair);
+            }.bind(this));
+        }.bind(this)});
         return null;
     }.bind(this)));
 }

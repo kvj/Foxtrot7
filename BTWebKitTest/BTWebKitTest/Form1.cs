@@ -323,7 +323,7 @@ namespace BTWebKitTest
             CefSharp.Settings settings = new Settings();
 //            settings.AutoDetectProxySettings = true;
             settings.CachePath = "cache";
-            settings.LogFile = "Kostya.log";
+            settings.LogFile = "f7chromium.log";
             settings.LogSeverity = LogSeverity.Warning;
             CEF.Initialize(settings);
             CefSharp.BrowserSettings bsettings = new BrowserSettings();

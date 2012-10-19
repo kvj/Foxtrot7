@@ -2,7 +2,7 @@
 var Plugin = function () {
 }
 
-Plugin.prototype = PluginStub.prototype;
+Plugin.prototype = new PluginStub();
 
 Plugin.pluginName = 'messages';
 Plugin.pluginDescription = 'Messaging';
