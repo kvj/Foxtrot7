@@ -76,7 +76,7 @@ namespace BTWebKitTest
                     {
                         while ((data = reader.ReadString()) != null)
                         {
-                            log(this, "Got data: " + data);
+                            log(this, "Got data["+data.Length+"]: " + data);
                             if ("" == data)
                             {
                                 log(this, "EOS detected");
@@ -93,7 +93,9 @@ namespace BTWebKitTest
                             stream.Flush();
                         }
                     }
-                    catch (Exception e) { }
+                    catch (Exception e) { 
+                    log(this, "Error: " + e);
+                    }
                     client.Close();
                     ctx.listener.BeginAcceptBluetoothClient(new AsyncCallback(listenCallback), ctx);
                     log(this, "Remote connection finished");
@@ -112,24 +114,30 @@ namespace BTWebKitTest
                 public BluetoothAddress addr;
                 public BluetoothClient client;
                 public string handler;
+                public BluetoothDeviceInfo info;
             }
 
             private void onServiceRecordParse(IAsyncResult result)
             {
-                log(this, "Parse: " + result.AsyncState + ", " + result.IsCompleted);
+                log(this, "Service parse done: " + result.AsyncState + ", " + result.IsCompleted);
                 BTSendContext ctx = (BTSendContext)result.AsyncState;
                 try
                 {
-                    log(this, "Found, connecting: " + ctx.guid);
+                    log(this, "Parsed: " + ctx.info.InstalledServices.Length);
+                    var svcs = ctx.info.InstalledServices;
+                    foreach (var item in svcs)
+                    {
+                        log(this, "Svc: "+item);
+                    }
                     ctx.client.Connect(ctx.addr, ctx.guid);
                     log(this, "Connected");
                     var stream = ctx.client.GetStream();
-                    log(this, "Connect: " + ctx.addr + " done: "+ctx.data.Length);
+                    log(this, "Connect: " + ctx.addr + " done, sending: "+ctx.data.Length+", "+ctx.data);
 //                    byte[] b1 = System.Text.Encoding.UTF8.GetBytes(ctx.data);
                     BinaryWriter writer = new BinaryWriter(stream, System.Text.Encoding.UTF8);
                     writer.Write(ctx.data);
                     int res = stream.ReadByte();
-                    writer.Write(0); // EOS
+                    writer.Write((byte)0); // EOS
                     stream.Close();
                     log(this, "Closed: " + res + " done");
                     parent.events.call(ctx.handler, true, null, ""+res);
@@ -143,6 +151,7 @@ namespace BTWebKitTest
 
             public void send(String device, String uuid, String remote, String data, String handler) 
             {
+                log(this, "Sending: " + device + " + " + remote);
                 try
                 {
                     foreach (BluetoothRadio radio in BluetoothRadio.AllRadios)
@@ -158,6 +167,7 @@ namespace BTWebKitTest
                             {
                                 if (info.DeviceAddress.ToString().Equals(remote))
                                 {
+                                    log(this, "Found pair radio - device");
                                     addr = info.DeviceAddress;
                                     var ctx = new BTSendContext();
                                     ctx.addr = addr;
@@ -165,6 +175,7 @@ namespace BTWebKitTest
                                     ctx.guid = guid;
                                     ctx.handler = handler;
                                     ctx.client = client;
+                                    ctx.info = info;
                                     info.BeginGetServiceRecords(guid, new AsyncCallback(onServiceRecordParse), ctx);
                                     return;
                                 }
@@ -275,6 +286,11 @@ namespace BTWebKitTest
                 BluetoothRadio radio = BluetoothRadio.PrimaryRadio;
 //                Console.Out.WriteLine("BT: " + radio.HardwareStatus+", "+radio.Name+", "+radio.SoftwareManufacturer+", "+radio.LocalAddress.ToString());
                 return BluetoothRadio.IsSupported;
+            }
+
+            public void raise()
+            {
+                parent.Activate();
             }
 
         }

@@ -39,3 +39,7 @@
     bottom: 1em;
     width: 400px;
 }
+
+.plugin-content {
+    padding: 1em;
+}

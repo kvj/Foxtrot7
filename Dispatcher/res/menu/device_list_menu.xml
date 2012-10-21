@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_device_add"
+        android:title="Add device"
+        android:icon="@drawable/ic_device_add"
+        android:showAsAction="ifRoom">
+    </item>
+    <item
+        android:id="@+id/menu_device_refresh"
+        android:title="Refresh"
+        android:icon="@drawable/ic_action_refresh"
+        android:showAsAction="ifRoom">
+    </item>
+</menu>

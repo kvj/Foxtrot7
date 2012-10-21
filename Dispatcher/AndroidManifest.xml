@@ -1,38 +1,50 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.kvj.foxtrot7.dispatcher"
     android:versionCode="1"
-    android:versionName="1.0" >
-
+    android:versionName="1.0">
     <uses-sdk
         android:minSdkVersion="7"
-        android:targetSdkVersion="15" />
-    
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    
+        android:targetSdkVersion="15"/>
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
     <application
+        android:name=".F7App"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.Sherlock"
-        android:name=".F7App">
-        <receiver android:name=".controller.StartupReceiver" >
-            <intent-filter >
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-
-                <category android:name="android.intent.category.HOME" />
+        android:theme="@style/Theme.Sherlock">
+        <receiver android:name=".controller.StartupReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <category android:name="android.intent.category.HOME"/>
             </intent-filter>
         </receiver>
-        
         <service android:name=".controller.F7Service"/>
-        <activity
-            android:name=".MainConfiguration"
-            android:label="@string/title_activity_main_configuration" >
+        <service
+            android:name=".controller.F7RemoteProvider"
+            android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="org.kvj.foxtrot7.INTERFACE"/>
+            </intent-filter>
+        </service>
+        <activity
+            android:name=".ui.MainConfiguration"
+            android:label="@string/title_activity_main_configuration">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ui.PluginConfiguration"
+            android:label="Plugin Devices"/>
+        <!-- Plugins -->
+        <service
+            android:name=".plugins.devinfo.DevInfoService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.kvj.foxtrot7.PLUGIN"/>
+                <category android:name="org.kvj.foxtrot7.plugin.DEVICE_INFO"/>
+            </intent-filter>
+        </service>
     </application>
-
 </manifest>

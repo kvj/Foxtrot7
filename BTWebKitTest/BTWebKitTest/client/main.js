@@ -35,12 +35,43 @@ App.prototype.initDevices = function () {
                 }.bind(this)),
                 this.h(function(err, remote, data) {
                     log('Data? result:', err, data);
-                    return 3;
+                    try {
+                        this.onMessage(remote, data);
+                        return 0;
+                    } catch (e) {
+                        log('Error parsing data:', e);
+                        return 4;
+                    }
                 }.bind(this)));
         };
         log('enumerateDevices', err, data.radios);
         return null;
     }.bind(this)));
+};
+
+App.prototype.onMessage = function (device, data) {
+    var ctx = {};
+    ctx.id = data.id;
+    ctx.from = data.from;
+    ctx.device = device;
+    ctx.inResponse = data.response;
+    ctx.serie = data.serie;
+    log('onMessage', device, data, ctx);
+    if (ctx.inResponse && this.waitForResponse[ctx.inResponse]) {
+        log('Direct response - ignore handlers');
+        this.waitForResponse[ctx.inResponse](null, data.data, ctx);
+        delete this.waitForResponse[ctx.inResponse];
+        return;
+    }
+    for (var id in this.running) {
+        var r = this.running[id];
+//        log('Message handler', r.device, device, data.data, id);
+        if (r.device == device) {
+            if (r.onMessage(data.data, ctx) == true) {
+                return;
+            };
+        };
+    };
 };
 
 App.prototype.showAlert = function (message, title, config) {
@@ -396,7 +427,13 @@ PluginStub.prototype.onRender = function(div) {};
 PluginStub.prototype.onShow = function() {};
 PluginStub.prototype.onHide = function() {};
 PluginStub.prototype.onClose = function() {};
-PluginStub.prototype.onMessage = function(message) {};
+PluginStub.prototype.onMessage = function(message, ctx) {};
+PluginStub.prototype.send = function(message, ctx) {
+    if (!ctx) {
+        ctx = {};
+    }
+    return this.app.send(this, message, ctx);
+};
 
 App.prototype.notifyPlugin = function (id, type) {
     if (!id || !this.running[id]) {
@@ -428,6 +465,7 @@ App.prototype.startPlugin = function (radio, device, plugin, pair) {
 App.prototype.loadPlugins = function () {
     this.plugins = [];
     this.running = {};
+    this.waitForResponse = {};
     window.registerPlugin = function(plugin) {
         log('Plugin loaded:', plugin);
         this.plugins.push(plugin);
@@ -447,6 +485,31 @@ App.prototype.loadPlugins = function () {
             }.bind(this));
         }.bind(this)});
         return null;
+    }.bind(this)));
+}
+
+App.prototype.send = function(running, message, ctx) {
+    var packet = {
+        from: running.plugin,
+        id: new Date().getTime(),
+        data: message
+    };
+    if (ctx.inResponse) {
+        packet.response = ctx.inResponse;
+    }
+    if (ctx.serie) {
+        packet.serie = ctx.serie;
+    };
+    log('App.send:', running.radio, running.device, packet);
+    if (ctx.onResponse) {
+        this.waitForResponse[packet.id] = ctx.onResponse;
+        // TODO: Add timeout
+    };
+    window.bt.send(running.radio, this.uuid, running.device, JSON.stringify(packet), this.h(function(err) {
+        log('Send result:', err);
+        if (ctx.handler) {
+            ctx.handler(err);
+        };
     }.bind(this)));
 }
 

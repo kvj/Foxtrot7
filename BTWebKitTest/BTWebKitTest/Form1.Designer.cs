@@ -28,11 +28,13 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Main));
             this.webPanelParent = new System.Windows.Forms.TableLayoutPanel();
             this.toolStrip1 = new System.Windows.Forms.ToolStrip();
             this.showDevTools = new System.Windows.Forms.ToolStripButton();
             this.Reload = new System.Windows.Forms.ToolStripButton();
+            this.tray = new System.Windows.Forms.NotifyIcon(this.components);
             this.webPanelParent.SuspendLayout();
             this.toolStrip1.SuspendLayout();
             this.SuspendLayout();
@@ -48,7 +50,7 @@
             this.webPanelParent.RowCount = 2;
             this.webPanelParent.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.webPanelParent.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.webPanelParent.Size = new System.Drawing.Size(1008, 733);
+            this.webPanelParent.Size = new System.Drawing.Size(1008, 677);
             this.webPanelParent.TabIndex = 0;
             // 
             // toolStrip1
@@ -67,25 +69,33 @@
             this.showDevTools.Image = ((System.Drawing.Image)(resources.GetObject("showDevTools.Image")));
             this.showDevTools.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.showDevTools.Name = "showDevTools";
-            this.showDevTools.Size = new System.Drawing.Size(81, 22);
+            this.showDevTools.Size = new System.Drawing.Size(83, 22);
             this.showDevTools.Text = "Dev tools";
             this.showDevTools.Click += new System.EventHandler(this.showDevTools_Click);
             // 
             // Reload
             // 
+            this.Reload.Enabled = false;
             this.Reload.Image = ((System.Drawing.Image)(resources.GetObject("Reload.Image")));
             this.Reload.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.Reload.Name = "Reload";
-            this.Reload.Size = new System.Drawing.Size(66, 22);
+            this.Reload.Size = new System.Drawing.Size(67, 22);
             this.Reload.Text = "Reload";
             this.Reload.Click += new System.EventHandler(this.Reload_Click);
             // 
+            // tray
+            // 
+            this.tray.Icon = ((System.Drawing.Icon)(resources.GetObject("tray.Icon")));
+            this.tray.Text = "Foxtrot7";
+            this.tray.Visible = true;
+            // 
             // Main
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1008, 733);
+            this.ClientSize = new System.Drawing.Size(1008, 677);
             this.Controls.Add(this.webPanelParent);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Main";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Bluetooth Manager";
@@ -103,6 +113,7 @@
         private System.Windows.Forms.ToolStrip toolStrip1;
         private System.Windows.Forms.ToolStripButton showDevTools;
         private System.Windows.Forms.ToolStripButton Reload;
+        private System.Windows.Forms.NotifyIcon tray;
 
     }
 }
