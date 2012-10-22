@@ -82,8 +82,7 @@ public class F7Controller {
 
 	public F7Controller() {
 		startBluetoothListener();
-		plugins = new RemoteServicesCollector<F7MessagePlugin>(
-				F7App.getInstance(), F7Constants.PLUGIN_INTERFACE) {
+		plugins = new RemoteServicesCollector<F7MessagePlugin>(F7App.getInstance(), F7Constants.PLUGIN_INTERFACE) {
 
 			@Override
 			public F7MessagePlugin castAIDL(IBinder binder) {
@@ -143,8 +142,7 @@ public class F7Controller {
 				BluetoothSocket s = null;
 				Log.i(TAG, "About to begin listen: ");
 				while ((s = socket.accept()) != null) {
-					Log.i(TAG, "Incoming bt connection: "
-							+ s.getRemoteDevice().getName());
+					Log.i(TAG, "Incoming bt connection: " + s.getRemoteDevice().getName());
 					try { //
 							// BufferedReader br = new BufferedReader(
 							// new InputStreamReader(s.getInputStream(),
@@ -165,8 +163,7 @@ public class F7Controller {
 							int result = 0;
 							try {
 								JSONObject json = new JSONObject(data);
-								result = processIncomingJSON(s
-										.getRemoteDevice().getAddress(), json);
+								result = processIncomingJSON(s.getRemoteDevice().getAddress(), json);
 							} catch (Exception e) {
 								result = F7Constants.F7_ERR_DATA;
 							}
@@ -314,6 +311,10 @@ public class F7Controller {
 					result.add(info);
 				}
 			}
+		} else {
+			DeviceInfo info = new DeviceInfo("FAKE");
+			info.name = "Fake paired device";
+			result.add(info);
 		}
 		return result;
 	}
@@ -327,8 +328,7 @@ public class F7Controller {
 		try { // Bluetooth open errors
 			UUID uuid = UUID.fromString(f7UUID);
 			Log.i(TAG, "Open RFCOMM: " + uuid.toString());
-			BluetoothServerSocket serverSocket = adapter
-					.listenUsingRfcommWithServiceRecord("Foxtrot7", uuid);
+			BluetoothServerSocket serverSocket = adapter.listenUsingRfcommWithServiceRecord("Foxtrot7", uuid);
 			serverThread = new ServerThread(serverSocket);
 			serverThread.start();
 			return true;
@@ -432,9 +432,7 @@ public class F7Controller {
 					result.add(item);
 				}
 			}
-			Cursor c = db.getDatabase().query("pairs",
-					new String[] { "plugin" }, null, null, "plugin", null,
-					"plugin");
+			Cursor c = db.getDatabase().query("pairs", new String[] { "plugin" }, null, null, "plugin", null, "plugin");
 			while (c.moveToNext()) {
 				String plugin = c.getString(0);
 				if (!added.contains(plugin)) {
@@ -481,9 +479,8 @@ public class F7Controller {
 		List<DeviceInfo> result = new ArrayList<F7Controller.DeviceInfo>();
 		try {
 			List<DeviceInfo> all = getAllDevices();
-			Cursor c = db.getDatabase().query("pairs",
-					new String[] { "device" }, "plugin=?",
-					new String[] { plugin }, null, null, null);
+			Cursor c = db.getDatabase().query("pairs", new String[] { "device" }, "plugin=?", new String[] { plugin },
+					null, null, null);
 			while (c.moveToNext()) {
 				String device = c.getString(0);
 				DeviceInfo info = new DeviceInfo(device);
@@ -503,8 +500,7 @@ public class F7Controller {
 
 	public boolean addDevice(String device, String plugin) {
 		try {
-			Cursor c = db.getDatabase().query("pairs",
-					new String[] { "device" }, "plugin=? and device=?",
+			Cursor c = db.getDatabase().query("pairs", new String[] { "device" }, "plugin=? and device=?",
 					new String[] { plugin, device }, null, null, null);
 			if (c.moveToNext()) {
 				// Already added
