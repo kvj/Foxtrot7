@@ -229,6 +229,18 @@ App.prototype.getPairs = function(handler) {
     return this._list('', 'pairs', handler);
 };
 
+App.prototype.setProgress = function(instance, type, value) {
+    window.bt.setProgress(type || 'no', value || 0);
+};
+
+App.prototype.raise = function(instance) {
+    window.bt.raise();
+};
+
+App.prototype.showBallon = function(instance, message, messageType, handler) {
+    window.bt.showBallon('Foxtrot7', message, messageType, this.h(handler));
+};
+
 App.prototype.openTab = function(r, d, p) {
     var tabsContentDiv = $('#main-tabs-content');
     var listDiv = $('#pairs-list');
@@ -534,6 +546,9 @@ App.prototype.createUI = function() {
 };
 
 App.prototype.h = function(fn) {
+    if (!fn) {
+        return null;
+    }
     var fnName = window.events.method()+(this.fnIndex++);
     window[fnName] = function(remove) {
         if (remove && window[fnName]) {

@@ -8,11 +8,13 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using CefSharp;
+using System.Windows.Threading;
 using InTheHand.Net.Sockets;
 using InTheHand.Net;
 using InTheHand.Net.Bluetooth;
 using Json;
 using System.IO;
+using Microsoft.WindowsAPICodePack.Taskbar;
 
 // GUID: {EBB4AF8E-E8F1-46A2-9B52-9980FD3CE6DC}
 
@@ -288,7 +290,59 @@ namespace BTWebKitTest
                 return BluetoothRadio.IsSupported;
             }
 
+            public void setProgress(String type, int value)
+            {
+                switch (type)
+                {
+                    case "normal":
+                        TaskbarManager.Instance.SetProgressState(TaskbarProgressBarState.Normal);
+                        TaskbarManager.Instance.SetProgressValue(value, 100);
+                        break;
+                    case "warning":
+                        TaskbarManager.Instance.SetProgressState(TaskbarProgressBarState.Paused);
+                        TaskbarManager.Instance.SetProgressValue(value, 100);
+                        break;
+                    case "error":
+                        TaskbarManager.Instance.SetProgressState(TaskbarProgressBarState.Error);
+                        TaskbarManager.Instance.SetProgressValue(value, 100);
+                        break;
+                    default:
+                        TaskbarManager.Instance.SetProgressState(TaskbarProgressBarState.NoProgress);
+                        break;
+                }
+            }
+
             public void raise()
+            {
+                parent.Invoke((Action)delegate()
+                {
+                    log(this, "Raising");
+                    parent.Focus();
+                });
+            }
+
+
+            public void showBallon(String title, String message, String messageType, String handler)
+            {
+//                log(this, "Raising pane: "+message+", "+messageType);
+                if (null != message)
+                {
+                    // Have message
+                    var icon = ToolTipIcon.Info;
+                    switch (messageType)
+                    {
+                        case "warning":
+                            icon = ToolTipIcon.Warning;
+                            break;
+                        case "error":
+                            icon = ToolTipIcon.Error;
+                            break;
+                    }
+                    parent.tray.ShowBalloonTip(0, title, message, icon);
+                }
+            }
+
+            private void activate(object state)
             {
                 parent.Activate();
             }

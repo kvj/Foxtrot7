@@ -54,18 +54,34 @@ Plugin.prototype.onRender = function(div) {
 };
 
 Plugin.prototype.refresh = function(data) {
+    var old = this.data;
     if (data) {
         this.data = data;
     }
-    if (!this.div || !this.data) {
-        return false;
-    }
+    var type = 'normal';
     var progressClass = 'b_progress progress';
     if (data.battery_status == 'charging') {
+        type = 'warning';
         progressClass += ' progress-warning';
     }
-    if (data.battery_status == 'full' || data.battery_level == 100) {
+    if (data.battery_status == 'full') {
+        type = 'no';
         progressClass += ' progress-success';
+    }
+    if (!old || old.battery_status != data.battery_status) {
+        var message = 'Discharging: '+data.battery_level+'%';
+        if (data.battery_status == 'full') {
+            message = 'Fully charged';
+        }
+        if (data.battery_status == 'charging') {
+            message = 'Charging: '+data.battery_level+'%';
+        }
+        this.app.showBallon(this, message);
+        this.app.raise(this);
+    }
+    this.app.setProgress(this, type, data.battery_level);
+    if (!this.div) {
+        return false;
     }
     this.progress.attr('class', progressClass);
     this.progressBar.css({

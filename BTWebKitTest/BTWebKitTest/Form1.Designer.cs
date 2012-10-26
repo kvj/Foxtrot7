@@ -50,7 +50,7 @@
             this.webPanelParent.RowCount = 2;
             this.webPanelParent.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.webPanelParent.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.webPanelParent.Size = new System.Drawing.Size(1008, 677);
+            this.webPanelParent.Size = new System.Drawing.Size(1008, 733);
             this.webPanelParent.TabIndex = 0;
             // 
             // toolStrip1
@@ -69,7 +69,7 @@
             this.showDevTools.Image = ((System.Drawing.Image)(resources.GetObject("showDevTools.Image")));
             this.showDevTools.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.showDevTools.Name = "showDevTools";
-            this.showDevTools.Size = new System.Drawing.Size(83, 22);
+            this.showDevTools.Size = new System.Drawing.Size(81, 22);
             this.showDevTools.Text = "Dev tools";
             this.showDevTools.Click += new System.EventHandler(this.showDevTools_Click);
             // 
@@ -79,21 +79,22 @@
             this.Reload.Image = ((System.Drawing.Image)(resources.GetObject("Reload.Image")));
             this.Reload.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.Reload.Name = "Reload";
-            this.Reload.Size = new System.Drawing.Size(67, 22);
+            this.Reload.Size = new System.Drawing.Size(66, 22);
             this.Reload.Text = "Reload";
             this.Reload.Click += new System.EventHandler(this.Reload_Click);
             // 
             // tray
             // 
+            this.tray.BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Info;
             this.tray.Icon = ((System.Drawing.Icon)(resources.GetObject("tray.Icon")));
             this.tray.Text = "Foxtrot7";
             this.tray.Visible = true;
             // 
             // Main
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1008, 677);
+            this.ClientSize = new System.Drawing.Size(1008, 733);
             this.Controls.Add(this.webPanelParent);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Main";
