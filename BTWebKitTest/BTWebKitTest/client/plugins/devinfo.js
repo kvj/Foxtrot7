@@ -21,16 +21,9 @@ Plugin.prototype.startRefresh = function () {
         onResponse: function(err, message, ctx) {
             log('Got direct response', message);
             if (err) {
-                return this.app.showError(err);
+                return this.showError(err);
             }
             this.refresh(message);
-            return null;
-        }.bind(this),
-        handler: function (err) {
-            log('get message sent:', err);
-            if (err) {
-                return this.app.showError(err);
-            }
             return null;
         }.bind(this)
     });
@@ -77,7 +70,6 @@ Plugin.prototype.refresh = function(data) {
             message = 'Charging: '+data.battery_level+'%';
         }
         this.app.showBallon(this, message);
-        this.app.raise(this);
     }
     this.app.setProgress(this, type, data.battery_level);
     if (!this.div) {

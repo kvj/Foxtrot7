@@ -6,6 +6,8 @@ import org.kvj.foxtrot7.F7Constants;
 import org.kvj.foxtrot7.aidl.F7MessageProvider;
 import org.kvj.foxtrot7.dispatcher.plugins.devinfo.BatteryMonitor;
 import org.kvj.foxtrot7.dispatcher.plugins.devinfo.DevInfoPugin;
+import org.kvj.foxtrot7.dispatcher.plugins.messages.MessagesPlugin;
+import org.kvj.foxtrot7.dispatcher.plugins.messages.SmsMonitor;
 
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -17,6 +19,7 @@ public class PluginsController {
 	protected static final String TAG = "PluginsController";
 	private ApplicationContext app = null;
 	private DevInfoPugin devInfoPugin = new DevInfoPugin(this);
+	private MessagesPlugin messagesPlugin = new MessagesPlugin(this);
 	RemoteServiceConnector<F7MessageProvider> remote = null;
 	private boolean initialized = false;
 
@@ -49,11 +52,17 @@ public class PluginsController {
 
 	private void init() {
 		initialized = true;
+		app.registerReceiver(new SmsMonitor(this), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
 		app.registerReceiver(new BatteryMonitor(this), new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+		Log.i(TAG, "Plugins init done");
 	}
 
 	public DevInfoPugin getDevInfoPlugin() {
 		return devInfoPugin;
+	}
+
+	public MessagesPlugin getMessagesPlugin() {
+		return messagesPlugin;
 	}
 
 	public F7MessageProvider getProvider() {

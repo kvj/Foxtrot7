@@ -316,8 +316,7 @@ namespace BTWebKitTest
             {
                 parent.Invoke((Action)delegate()
                 {
-                    log(this, "Raising");
-                    parent.Focus();
+                    parent.Activate();
                 });
             }
 

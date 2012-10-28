@@ -11,6 +11,7 @@ public class F7MessageContext implements Parcelable {
 	public String device = "";
 	public long serie = 0;
 	public boolean resend = false;
+	public boolean broadcast = false;
 
 	@Override
 	public int describeContents() {
@@ -25,6 +26,7 @@ public class F7MessageContext implements Parcelable {
 		dest.writeString(device);
 		dest.writeLong(serie);
 		dest.writeInt(resend ? 1 : 0);
+		dest.writeInt(broadcast ? 1 : 0);
 	}
 
 	public static final Parcelable.Creator<F7MessageContext> CREATOR = new Creator<F7MessageContext>() {
@@ -38,6 +40,7 @@ public class F7MessageContext implements Parcelable {
 			obj.device = source.readString();
 			obj.serie = source.readLong();
 			obj.resend = source.readInt() > 0;
+			obj.broadcast = source.readInt() > 0;
 			return obj;
 		}
 

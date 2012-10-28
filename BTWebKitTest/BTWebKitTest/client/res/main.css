@@ -5,6 +5,8 @@
     top: 0;
     right: 0;
     bottom: 0;
+    overflow-x: auto;
+    overflow-y: scroll;
 }
 
 .root {
@@ -41,5 +43,84 @@
 }
 
 .plugin-content {
-    padding: 1em;
+    padding: 0 1em;
 }
+
+.one-message {
+    width: 290px;
+    float: left;
+    box-sizing: border-box;
+    margin: 3px;
+}
+
+.one-message-title {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.one-message-title-text {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.one-message-body {
+    padding: 0.3em;
+}
+
+.one-message-input {
+    margin-top: 0.2em;
+    width: 100%;
+    height: 100px;
+    box-sizing: border-box;
+}
+
+.one-message-footer {
+    clear: both;
+    float: right;
+}
+
+.clear {
+    clear: both;
+}
+
+.one-message-reply-form {
+    display: none;
+}
+
+.one-message-reply-form-visible {
+    display: block;
+}
+
+.one-message-unread {
+    box-shadow: 0px 0px 3px #0000ff;
+    cursor: pointer;
+}
+
+.messages-list .list-table {
+    margin-top: 1em;
+}
+
+.messages-list .list-table tbody tr {
+    cursor: pointer;
+}
+
+.messages-list .list-table tbody tr.unread {
+    font-weight: bold;
+}
+
+.messages-list .list-table tbody td {
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.messages-list .list-table .th-contact {
+    width: 150px;
+}
+
+.messages-list .list-table .th-date {
+    width: 100px;
+}
+
+.messages-list .list-table .th-body {
+}
+

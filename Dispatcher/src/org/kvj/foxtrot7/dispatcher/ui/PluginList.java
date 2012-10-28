@@ -7,6 +7,7 @@ import org.kvj.foxtrot7.dispatcher.controller.F7Controller;
 import org.kvj.foxtrot7.dispatcher.controller.F7Controller.PluginItem;
 
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -36,9 +37,20 @@ public class PluginList extends SherlockListFragment {
 	}
 
 	private void refresh() {
-		plugins = controller.getPlugins();
-		setListAdapter(new ArrayAdapter<PluginItem>(getActivity(),
-				android.R.layout.simple_list_item_1, plugins));
+		new AsyncTask<Void, Void, List<F7Controller.PluginItem>>() {
+
+			@Override
+			protected List<F7Controller.PluginItem> doInBackground(Void... params) {
+				return plugins = controller.getPlugins();
+			}
+
+			@Override
+			protected void onPostExecute(List<F7Controller.PluginItem> result) {
+				plugins = result;
+				setListAdapter(new ArrayAdapter<PluginItem>(getActivity(),
+						android.R.layout.simple_list_item_1, plugins));
+			};
+		}.execute();
 	}
 
 	public void setController(F7Controller controller) {

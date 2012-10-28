@@ -76,7 +76,7 @@ public class DevInfoPugin extends DefaultF7Plugin {
 	}
 
 	public void reportBatteryChange() {
-		Log.i(TAG, "Reporting status change.");
+		Log.i(TAG, "Reporting status change");
 		try {
 			PJSONObject data = prepareStatusData();
 			data.put("type", "status");

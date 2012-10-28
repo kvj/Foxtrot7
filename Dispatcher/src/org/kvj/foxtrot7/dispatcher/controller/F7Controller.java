@@ -26,7 +26,11 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.os.Binder;
 import android.os.IBinder;
@@ -80,7 +84,30 @@ public class F7Controller {
 		TimerTask task = null;
 	}
 
+	private class BTStateListener extends BroadcastReceiver {
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF);
+			Log.i(TAG, "BT state changed: " + state);
+			if (null != serverThread) {
+				try {
+					Log.i(TAG, "Stopping BT connections:");
+					serverThread.socket.close();
+				} catch (Exception e) {
+				}
+			}
+			if (state == BluetoothAdapter.STATE_ON) {
+				boolean result = startBluetoothListener();
+				Log.i(TAG, "Starting BT: " + result);
+			}
+		}
+
+	}
+
 	public F7Controller() {
+		F7App.getInstance().registerReceiver(new BTStateListener(),
+				new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
 		startBluetoothListener();
 		plugins = new RemoteServicesCollector<F7MessagePlugin>(F7App.getInstance(), F7Constants.PLUGIN_INTERFACE) {
 
@@ -130,7 +157,7 @@ public class F7Controller {
 
 	class ServerThread extends Thread {
 
-		private BluetoothServerSocket socket = null;
+		BluetoothServerSocket socket = null;
 
 		public ServerThread(BluetoothServerSocket serverSocket) {
 			this.socket = serverSocket;
@@ -157,9 +184,20 @@ public class F7Controller {
 								break;
 							}
 							byte[] chs = new byte[size];
-							in.read(chs);
+							int readTotal = 0;
+							while (readTotal < size) {
+								int read = in.read(chs, readTotal, size - readTotal);
+								if (-1 == read) {
+									Log.w(TAG, "Reached end: " + readTotal);
+									break;
+								}
+								// Log.i(TAG, "Read portion: " + read + ", " +
+								// readTotal + " " + size);
+								readTotal += read;
+							}
 							String data = new String(chs, "utf-8");
-							Log.i(TAG, "Incoming data[" + size + "]: " + data);
+							// Log.i(TAG, "Incoming data[" + size + "] - [" +
+							// readTotal + "]: " + data);
 							int result = 0;
 							try {
 								JSONObject json = new JSONObject(data);
@@ -170,13 +208,17 @@ public class F7Controller {
 							out.write(result);
 						}
 						s.close();
-						Log.i(TAG, "Incoming bt connection done");
+						// Log.i(TAG, "Incoming bt connection done");
 					} catch (Exception e) {
 						Log.e(TAG, "Error reading BT: " + e);
 					}
 				}
 			} catch (Exception e) {
-				Log.e(TAG, "BT Accept error:", e);
+				Log.w(TAG, "BT Accept error, possibly BT adapter stopped");
+			}
+			serverThread = null;
+			synchronized (connections) {
+				connections.clear();
 			}
 		}
 	}
@@ -233,7 +275,7 @@ public class F7Controller {
 		if (null == adapter) { // No BT
 			return F7Constants.F7_ERR_HARDWARE;
 		}
-		Log.i(TAG, "About to send data " + data + " to " + ctx.device);
+		// Log.i(TAG, "About to send data " + data + " to " + ctx.device);
 		try { // Bluetooth errors
 			BluetoothConnection conn = getConnection(ctx.device);
 			if (null == conn) {
@@ -243,7 +285,8 @@ public class F7Controller {
 				OutputStream output = conn.socket.getOutputStream();
 				InputStream in = conn.socket.getInputStream();
 				byte[] bytes = data.getBytes("utf-8");
-				Log.i(TAG, "Sending: " + bytes.length + ", " + data.length());
+				// Log.i(TAG, "Sending: " + bytes.length + ", " +
+				// data.length());
 				try {
 					intToByteArray(bytes.length, output);
 				} catch (Exception e) {
@@ -253,7 +296,7 @@ public class F7Controller {
 						synchronized (connections) {
 							conn.task.cancel();
 							connections.remove(ctx.device);
-							Log.i(TAG, "Retrying connection");
+							Log.w(TAG, "Retrying connection");
 							return send(data, ctx, false);
 						}
 					} else {
@@ -263,9 +306,9 @@ public class F7Controller {
 				}
 				output.write(bytes);
 				output.flush();
-				Log.i(TAG, "Written");
+				// Log.i(TAG, "Written");
 				int result = in.read();
-				Log.i(TAG, "Written and closed: " + result);
+				// Log.i(TAG, "Written and closed: " + result);
 				return result;
 			}
 		} catch (Exception e) {
@@ -325,6 +368,10 @@ public class F7Controller {
 			Log.e(TAG, "Bluetooth not supported");
 			return false;
 		}
+		if (adapter.getState() != BluetoothAdapter.STATE_ON) {
+			Log.w(TAG, "Bluetooth not enabled");
+			return false;
+		}
 		try { // Bluetooth open errors
 			UUID uuid = UUID.fromString(f7UUID);
 			Log.i(TAG, "Open RFCOMM: " + uuid.toString());
@@ -338,10 +385,21 @@ public class F7Controller {
 		return false;
 	}
 
+	private long lastID = 0;
+
+	private long nextID() {
+		long next = System.currentTimeMillis();
+		while (next <= lastID) {
+			next++;
+		}
+		lastID = next;
+		return next;
+	}
+
 	private int findAndSend(JSONObject data, F7MessageContext ctx) {
 		db.getDatabase().beginTransaction();
 		try {
-			ctx.id = System.currentTimeMillis();
+			ctx.id = nextID();
 			String where = "plugin=?";
 			String[] whereArgs = { ctx.from };
 			if (!TextUtils.isEmpty(ctx.device)) {
@@ -363,9 +421,12 @@ public class F7Controller {
 						values.put("active", 1);
 						db.getDatabase().update("pairs", values, "id=?", new String[] { id });
 					}
-					db.getDatabase().setTransactionSuccessful();
-					c.close();
-					return result;
+					if (!ctx.broadcast) {
+						// Not a broadcast - done
+						db.getDatabase().setTransactionSuccessful();
+						c.close();
+						return result;
+					}
 				} else {
 					if (active != 0) {
 						// Active

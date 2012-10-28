@@ -11,14 +11,13 @@ var App = function() {
     this.uuid = '{EBB4AF8E-E8F1-46A2-9B52-9980FD3CE6DC}';
     this.fnIndex = 0;
     this.createUI();
-    this.showAlert('Starting...');
     this.initDB(function(err) {
         if (err) {
             return this.showError(err);
         }
         return this.initDevices();
     }.bind(this));
-    log('OK...', window.bt, window.bt.isSupported());
+//    log('OK...', window.bt, window.bt.isSupported());
 };
 
 App.prototype.initDevices = function () {
@@ -65,7 +64,7 @@ App.prototype.onMessage = function (device, data) {
     }
     for (var id in this.running) {
         var r = this.running[id];
-//        log('Message handler', r.device, device, data.data, id);
+        log('Message handler', r.device, device, data.data, id);
         if (r.device == device) {
             if (r.onMessage(data.data, ctx) == true) {
                 return;
@@ -85,12 +84,12 @@ App.prototype.showAlert = function (message, title, config) {
     if (!config.persistent) {
         setTimeout(function() {
             div.remove();
-        }.bind(this), 5000);
+        }.bind(this), config.timeout || 3000);
     }
 };
 
-App.prototype.showError = function (message) {
-    this.showAlert(message, 'Error!', {severity: 'error', persistent: true});
+App.prototype.showError = function (message, title) {
+    this.showAlert(message, title || 'Error!', {severity: 'error', persistent: true});
 }
 
 App.prototype.initDB = function (handler) {
@@ -436,15 +435,23 @@ PluginStub.prototype.init = function(app, radio, device){
 PluginStub.prototype.onStart = function() {};
 PluginStub.prototype.onStop = function() {};
 PluginStub.prototype.onRender = function(div) {};
+PluginStub.prototype.onClose = function() {};
 PluginStub.prototype.onShow = function() {};
 PluginStub.prototype.onHide = function() {};
-PluginStub.prototype.onClose = function() {};
 PluginStub.prototype.onMessage = function(message, ctx) {};
 PluginStub.prototype.send = function(message, ctx) {
     if (!ctx) {
         ctx = {};
     }
     return this.app.send(this, message, ctx);
+};
+
+PluginStub.prototype.showError = function(error) {
+    this.app.showError(error, this.pluginDescription);
+};
+
+PluginStub.prototype.showAlert = function(message, config) {
+    this.app.showAlert(message, this.pluginDescription, config || {});
 };
 
 App.prototype.notifyPlugin = function (id, type) {
@@ -465,11 +472,22 @@ App.prototype.notifyPlugin = function (id, type) {
     return instance[type].apply(instance, args);
 }
 
+App.prototype.focus = function (instance) {
+    log('Focus', instance.id);
+    if (!this.running[instance.id]) {
+        log('Not running');
+        return false;
+    }
+    $('#list'+instance.id+' a').click();
+    return true;
+}
+
 App.prototype.startPlugin = function (radio, device, plugin, pair) {
     var instance = new plugin();
     instance.init(this, radio, device);
     instance.id = pair.id;
     instance.plugin = plugin.pluginName;
+    instance.pluginDescription = plugin.pluginDescription;
     this.running[pair.id] = instance;
     instance.onStart();
 }
@@ -516,9 +534,20 @@ App.prototype.send = function(running, message, ctx) {
     if (ctx.onResponse) {
         this.waitForResponse[packet.id] = ctx.onResponse;
         // TODO: Add timeout
+        setTimeout(function(){
+            if (this.waitForResponse[packet.id]) {
+                ctx.onResponse('Timeout waiting for response');
+                delete this.waitForResponse[packet.id];                
+            }
+        }.bind(this), ctx.timeout || 20000);
     };
     window.bt.send(running.radio, this.uuid, running.device, JSON.stringify(packet), this.h(function(err) {
-        log('Send result:', err);
+//        log('Send result:', err);
+        if (ctx.onResponse && err) {
+            ctx.onResponse(err);
+            delete this.waitForResponse[packet.id];
+            return;
+        }
         if (ctx.handler) {
             ctx.handler(err);
         };

@@ -7,6 +7,13 @@
         android:targetSdkVersion="15"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    
+    <!-- Plug-in permissions -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <uses-permission android:name="android.permission.SEND_SMS"/>
+    <uses-permission android:name="android.permission.READ_SMS"/>
+    <uses-permission android:name="android.permission.WRITE_SMS"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <application
         android:name=".F7App"
         android:icon="@drawable/ic_launcher"
@@ -46,5 +53,14 @@
                 <category android:name="org.kvj.foxtrot7.plugin.DEVICE_INFO"/>
             </intent-filter>
         </service>
+        <service
+            android:name=".plugins.messages.MessagesService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.kvj.foxtrot7.PLUGIN"/>
+                <category android:name="org.kvj.foxtrot7.plugin.MESSAGES"/>
+            </intent-filter>
+        </service>
+        <receiver android:name=".plugins.messages.SendResultReceiver"/>
     </application>
 </manifest>
