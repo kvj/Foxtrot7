@@ -1,0 +1,14 @@
+{
+	"name": "Foxtrot7",
+	"description": "Messaging prototype",
+	"version": "0.0.1",
+	"manifest_version": 2,
+	"permissions": ["bluetooth"],
+	"app": {
+		"background": {
+			"scripts": ["app.js"]
+		}
+	},
+	"icons": { "16": "res/f7-16.png", "128": "res/f7-128.png" }
+}
+
