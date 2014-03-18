@@ -8,10 +8,9 @@ import org.kvj.foxtrot7.dispatcher.controller.F7Controller;
 import org.kvj.foxtrot7.dispatcher.controller.F7Service;
 
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
 
-import com.actionbarsherlock.app.SherlockFragmentActivity;
-
-public class PluginConfiguration extends SherlockFragmentActivity implements
+public class PluginConfiguration extends FragmentActivity implements
 		ControllerReceiver<F7Controller> {
 
 	public static final String PLUGIN = "plugin";

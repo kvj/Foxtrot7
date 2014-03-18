@@ -9,18 +9,17 @@ import org.kvj.foxtrot7.dispatcher.controller.F7Controller.PluginItem;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.app.ListFragment;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
-import com.actionbarsherlock.app.SherlockListFragment;
-import com.actionbarsherlock.view.Menu;
-import com.actionbarsherlock.view.MenuInflater;
-import com.actionbarsherlock.view.MenuItem;
-
-public class PluginList extends SherlockListFragment {
+public class PluginList extends ListFragment {
 
 	private static final String TAG = "PluginList";
 	private F7Controller controller = null;

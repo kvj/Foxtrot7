@@ -1,5 +1,6 @@
 package org.kvj.foxtrot7.dispatcher.controller;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -53,6 +54,10 @@ public class F7Controller {
 	private final Map<String, BluetoothConnection> connections = new HashMap<String, BluetoothConnection>();
 	Timer autoCloseTimer = new Timer("AutoClose");
 
+	enum ExpectType {
+		Response, Request;
+	};
+	
 	class BluetoothConnection {
 
 		class CloseTask extends TimerTask {
@@ -80,6 +85,8 @@ public class F7Controller {
 		BluetoothSocket socket;
 		String device;
 		long cancelTime;
+		ExpectType expectType = ExpectType.Request;
+		Object waitingNow = null;
 
 		TimerTask task = null;
 	}
@@ -128,6 +135,8 @@ public class F7Controller {
 		synchronized (connections) {
 			BluetoothConnection conn = connections.get(device);
 			if (null == conn) {
+				return null;
+				/*
 				UUID uuid = UUID.fromString(f7UUID);
 				try {
 					Log.i(TAG, "Creating new connection: " + device);
@@ -141,10 +150,13 @@ public class F7Controller {
 					return null;
 				}
 				connections.put(device, conn);
+				*/
 			} else {
 				Log.i(TAG, "Reusing connection: " + device);
+				return conn;
 			}
 			// Restart handler
+			/*
 			if (null != conn.task) {
 				conn.task.cancel();
 			}
@@ -152,9 +164,106 @@ public class F7Controller {
 			conn.task = conn.new CloseTask();
 			autoCloseTimer.schedule(conn.task, AUTOCLOSE_MSEC);
 			return conn;
+			*/
 		}
 	}
+	
+	enum IncomingValueType {
+		Invalid, Response, Request
+	}
+	
+	class IncomingValue {		
+		public IncomingValue(IncomingValueType type, int value) {
+			this.type = type;
+			this.value = value;
+		}
+		IncomingValueType type;
+		int value;
+	}
 
+	class ClientThread extends Thread {
+		
+		BluetoothConnection connection;
+		
+		public ClientThread(BluetoothSocket s) {
+			connection = new BluetoothConnection();
+			connection.socket = s;
+		}
+		
+		private IncomingValue readUntil(InputStream stream) throws IOException {
+			int result = 0;
+			for (int i = 0; i < 4; i++) {
+				int b = stream.read();
+				if (i == 0 && connection.expectType == ExpectType.Response) {
+					// Got response
+					return new IncomingValue(IncomingValueType.Response, b);
+				}
+				Log.i(TAG, "Read byte "+i+" = "+b);
+				result = (result << 8) + b;
+			}
+			Log.i(TAG, "Read byte "+result);
+			return new IncomingValue(IncomingValueType.Request, result);
+		}
+		
+		@Override
+		public void run() {
+			Log.i(TAG, "Incoming bt connection: " + connection.socket.getRemoteDevice().getName());
+			String address = connection.socket.getRemoteDevice().getAddress();
+			try { //
+					// BufferedReader br = new BufferedReader(
+					// new InputStreamReader(s.getInputStream(),
+					// "utf-8"));
+				InputStream in = connection.socket.getInputStream();
+				// Reader r = new InputStreamReader(in, "utf-8");
+				OutputStream out = connection.socket.getOutputStream();
+				
+				while (true) {
+					IncomingValue value = readUntil(in);
+					if (value.type == IncomingValueType.Response) {
+						// Received response
+						connection.expectType = ExpectType.Request;
+						continue;
+					}
+					int size = value.value;
+					if (0 == size) {
+						// No more data
+						break;
+					}
+					byte[] chs = new byte[size];
+					int readTotal = 0;
+					while (readTotal < size) {
+						int read = in.read(chs, readTotal, size - readTotal);
+						if (-1 == read) {
+							Log.w(TAG, "Reached end: " + readTotal);
+							break;
+						}
+						// Log.i(TAG, "Read portion: " + read + ", " +
+						// readTotal + " " + size);
+						readTotal += read;
+					}
+					String data = new String(chs, "utf-8");
+					// Log.i(TAG, "Incoming data[" + size + "] - [" +
+					// readTotal + "]: " + data);
+					int result = 0;
+					out.write(result);
+					try {
+						JSONObject json = new JSONObject(data);
+						result = processIncomingJSON(address, json);
+					} catch (Exception e) {
+						result = F7Constants.F7_ERR_DATA;
+					}
+				}
+				connection.socket.close();
+				// Log.i(TAG, "Incoming bt connection done");
+			} catch (Exception e) {
+				Log.e(TAG, "Error reading BT: " + e);
+			}
+			synchronized (connections) {
+				connections.remove(address);
+			}
+		}
+	}
+	
 	class ServerThread extends Thread {
 
 		BluetoothServerSocket socket = null;
@@ -169,48 +278,11 @@ public class F7Controller {
 				BluetoothSocket s = null;
 				Log.i(TAG, "About to begin listen: ");
 				while ((s = socket.accept()) != null) {
-					Log.i(TAG, "Incoming bt connection: " + s.getRemoteDevice().getName());
-					try { //
-							// BufferedReader br = new BufferedReader(
-							// new InputStreamReader(s.getInputStream(),
-							// "utf-8"));
-						InputStream in = s.getInputStream();
-						// Reader r = new InputStreamReader(in, "utf-8");
-						OutputStream out = s.getOutputStream();
-						int size = 0;
-						while ((size = byteArrayToInt(in)) > 0) {
-							if (0 == size) {
-								// No more data
-								break;
-							}
-							byte[] chs = new byte[size];
-							int readTotal = 0;
-							while (readTotal < size) {
-								int read = in.read(chs, readTotal, size - readTotal);
-								if (-1 == read) {
-									Log.w(TAG, "Reached end: " + readTotal);
-									break;
-								}
-								// Log.i(TAG, "Read portion: " + read + ", " +
-								// readTotal + " " + size);
-								readTotal += read;
-							}
-							String data = new String(chs, "utf-8");
-							// Log.i(TAG, "Incoming data[" + size + "] - [" +
-							// readTotal + "]: " + data);
-							int result = 0;
-							try {
-								JSONObject json = new JSONObject(data);
-								result = processIncomingJSON(s.getRemoteDevice().getAddress(), json);
-							} catch (Exception e) {
-								result = F7Constants.F7_ERR_DATA;
-							}
-							out.write(result);
-						}
-						s.close();
-						// Log.i(TAG, "Incoming bt connection done");
-					} catch (Exception e) {
-						Log.e(TAG, "Error reading BT: " + e);
+					synchronized (connections) {
+						// Create new connection
+						ClientThread thread = new ClientThread(s);
+						connections.put(s.getRemoteDevice().getAddress(), thread.connection);
+						thread.start();
 					}
 				}
 			} catch (Exception e) {
@@ -245,30 +317,22 @@ public class F7Controller {
 
 	private int byteArrayToInt(InputStream input) throws IOException {
 		int result = 0;
-		int shift = 0;
-		do {
+		for (int i = 0; i < 4; i++) {
 			int b = input.read();
-			// Log.i(TAG, "batoi:1 " + b);
-			result |= (b & 127) << shift;
-			shift += 7;
-			// Log.i(TAG, "batoi:3 " + result);
-			if ((b & 128) == 0) {
-				return result;
-			}
-			// Log.i(TAG, "batoi:4 " + (b & 128));
-		} while (true);
+			Log.i(TAG, "Read byte "+i+" = "+b);
+			result = (result << 8) + b;
+		}
+		Log.i(TAG, "Read byte "+result);
+		return result;
 	}
 
 	private void intToByteArray(int value, OutputStream output) throws IOException {
-		int i = value;
-		while (i != 0) {
-			int b = i & 127;
-			i >>= 7;
-			if (i != 0) {
-				b |= 128;
-			}
-			output.write(b);
+		// Write
+		for (int i = 0; i < 4; i++) {
+			output.write(value >> 24);
+			value = value << 8;
 		}
+		output.flush();
 	}
 
 	private int send(String data, F7MessageContext ctx, boolean retry) {
@@ -306,10 +370,10 @@ public class F7Controller {
 				}
 				output.write(bytes);
 				output.flush();
+				conn.expectType = ExpectType.Response;
 				// Log.i(TAG, "Written");
-				int result = in.read();
 				// Log.i(TAG, "Written and closed: " + result);
-				return result;
+				return 0;
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "Error sending", e);

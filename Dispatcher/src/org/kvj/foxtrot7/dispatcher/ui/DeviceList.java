@@ -13,17 +13,16 @@ import android.app.AlertDialog.Builder;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.os.Bundle;
+import android.support.v4.app.ListFragment;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.ArrayAdapter;
 
-import com.actionbarsherlock.app.SherlockListFragment;
-import com.actionbarsherlock.view.Menu;
-import com.actionbarsherlock.view.MenuInflater;
-import com.actionbarsherlock.view.MenuItem;
-
-public class DeviceList extends SherlockListFragment implements OnItemLongClickListener {
+public class DeviceList extends ListFragment implements OnItemLongClickListener {
 
 	private F7Controller controller = null;
 	private List<DeviceInfo> devices = null;
@@ -31,11 +30,6 @@ public class DeviceList extends SherlockListFragment implements OnItemLongClickL
 
 	public DeviceList() {
 		setHasOptionsMenu(true);
-	}
-
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
 	}
 
 	public void setController(F7Controller controller) {

@@ -61,6 +61,7 @@ public class DevInfoPugin extends DefaultF7Plugin {
 
 	@Override
 	public boolean onMessage(PJSONObject message, F7MessageContext context) throws RemoteException {
+		Log.i(TAG, "Incoming: "+context.from+", "+message);
 		if ("devinfo".equals(context.from)) {
 			if ("get".equals(message.opt("type"))) {
 				F7MessageContext ctx = context.inResponse();

@@ -4,17 +4,15 @@ import org.kvj.bravo7.ControllerConnector;
 import org.kvj.bravo7.ControllerConnector.ControllerReceiver;
 import org.kvj.foxtrot7.dispatcher.F7App;
 import org.kvj.foxtrot7.dispatcher.R;
-import org.kvj.foxtrot7.dispatcher.R.id;
-import org.kvj.foxtrot7.dispatcher.R.layout;
 import org.kvj.foxtrot7.dispatcher.controller.F7Controller;
 import org.kvj.foxtrot7.dispatcher.controller.F7Service;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
 
-import com.actionbarsherlock.app.SherlockFragmentActivity;
 
-public class MainConfiguration extends SherlockFragmentActivity implements
+public class MainConfiguration extends FragmentActivity implements
 		ControllerReceiver<F7Controller> {
 
 	private static final String TAG = "Main";
