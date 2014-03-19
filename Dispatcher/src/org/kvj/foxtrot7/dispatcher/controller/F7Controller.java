@@ -1,6 +1,5 @@
 package org.kvj.foxtrot7.dispatcher.controller;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -54,10 +53,6 @@ public class F7Controller {
 	private final Map<String, BluetoothConnection> connections = new HashMap<String, BluetoothConnection>();
 	Timer autoCloseTimer = new Timer("AutoClose");
 
-	enum ExpectType {
-		Response, Request;
-	};
-	
 	class BluetoothConnection {
 
 		class CloseTask extends TimerTask {
@@ -85,7 +80,6 @@ public class F7Controller {
 		BluetoothSocket socket;
 		String device;
 		long cancelTime;
-		ExpectType expectType = ExpectType.Request;
 		Object waitingNow = null;
 
 		TimerTask task = null;
@@ -168,19 +162,6 @@ public class F7Controller {
 		}
 	}
 	
-	enum IncomingValueType {
-		Invalid, Response, Request
-	}
-	
-	class IncomingValue {		
-		public IncomingValue(IncomingValueType type, int value) {
-			this.type = type;
-			this.value = value;
-		}
-		IncomingValueType type;
-		int value;
-	}
-
 	class ClientThread extends Thread {
 		
 		BluetoothConnection connection;
@@ -190,19 +171,18 @@ public class F7Controller {
 			connection.socket = s;
 		}
 		
-		private IncomingValue readUntil(InputStream stream) throws IOException {
+		private int readUntil(InputStream stream) throws IOException {
 			int result = 0;
 			for (int i = 0; i < 4; i++) {
 				int b = stream.read();
-				if (i == 0 && connection.expectType == ExpectType.Response) {
-					// Got response
-					return new IncomingValue(IncomingValueType.Response, b);
+				if (b<0) {
+					return -1;
 				}
 				Log.i(TAG, "Read byte "+i+" = "+b);
 				result = (result << 8) + b;
 			}
 			Log.i(TAG, "Read byte "+result);
-			return new IncomingValue(IncomingValueType.Request, result);
+			return result;
 		}
 		
 		@Override
@@ -218,17 +198,12 @@ public class F7Controller {
 				OutputStream out = connection.socket.getOutputStream();
 				
 				while (true) {
-					IncomingValue value = readUntil(in);
-					if (value.type == IncomingValueType.Response) {
-						// Received response
-						connection.expectType = ExpectType.Request;
-						continue;
-					}
-					int size = value.value;
-					if (0 == size) {
-						// No more data
+					int value = readUntil(in);
+					if (value <= 0) {
+						// Failed or no data
 						break;
 					}
+					int size = value;
 					byte[] chs = new byte[size];
 					int readTotal = 0;
 					while (readTotal < size) {
@@ -370,9 +345,6 @@ public class F7Controller {
 				}
 				output.write(bytes);
 				output.flush();
-				conn.expectType = ExpectType.Response;
-				// Log.i(TAG, "Written");
-				// Log.i(TAG, "Written and closed: " + result);
 				return 0;
 			}
 		} catch (Exception e) {

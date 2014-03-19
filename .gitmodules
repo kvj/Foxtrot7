@@ -1,3 +1,6 @@
 [submodule "Dispatcher/libs/Lima1"]
 	path = Dispatcher/libs/Lima1
 	url = git@github.com:kvj/Lima1.git
+[submodule "Dispatcher/dep/Lima1"]
+	path = Dispatcher/dep/Lima1
+	url = git@github.com:kvj/Lima1.git
