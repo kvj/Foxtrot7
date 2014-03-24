@@ -172,6 +172,7 @@ public class F7Controller {
 		}
 		
 		private int readUntil(InputStream stream) throws IOException {
+			Log.i(TAG, "Will read four bytes");
 			int result = 0;
 			for (int i = 0; i < 4; i++) {
 				int b = stream.read();
@@ -217,10 +218,9 @@ public class F7Controller {
 						readTotal += read;
 					}
 					String data = new String(chs, "utf-8");
-					// Log.i(TAG, "Incoming data[" + size + "] - [" +
-					// readTotal + "]: " + data);
+					Log.i(TAG, "Incoming data[" + size + "] - [" +
+					readTotal + "]: " + data);
 					int result = 0;
-					out.write(result);
 					try {
 						JSONObject json = new JSONObject(data);
 						result = processIncomingJSON(address, json);
@@ -231,7 +231,12 @@ public class F7Controller {
 				connection.socket.close();
 				// Log.i(TAG, "Incoming bt connection done");
 			} catch (Exception e) {
-				Log.e(TAG, "Error reading BT: " + e);
+				Log.e(TAG, "Error reading BT: " + e.getMessage());
+				try {
+					connection.socket.close();
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
 			}
 			synchronized (connections) {
 				connections.remove(address);
@@ -253,6 +258,7 @@ public class F7Controller {
 				BluetoothSocket s = null;
 				Log.i(TAG, "About to begin listen: ");
 				while ((s = socket.accept()) != null) {
+					Log.i(TAG, "New connection accepted");
 					synchronized (connections) {
 						// Create new connection
 						ClientThread thread = new ClientThread(s);
@@ -324,8 +330,7 @@ public class F7Controller {
 				OutputStream output = conn.socket.getOutputStream();
 				InputStream in = conn.socket.getInputStream();
 				byte[] bytes = data.getBytes("utf-8");
-				// Log.i(TAG, "Sending: " + bytes.length + ", " +
-				// data.length());
+				Log.i(TAG, "Sending: " + bytes.length + ", " + data.length());
 				try {
 					intToByteArray(bytes.length, output);
 				} catch (Exception e) {
@@ -343,8 +348,10 @@ public class F7Controller {
 						return F7Constants.F7_ERR_NETWORK;
 					}
 				}
+				Log.i(TAG, "Sending data");
 				output.write(bytes);
 				output.flush();
+				Log.i(TAG, "Sent data...");
 				return 0;
 			}
 		} catch (Exception e) {

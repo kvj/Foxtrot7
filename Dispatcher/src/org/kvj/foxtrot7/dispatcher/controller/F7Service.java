@@ -5,6 +5,7 @@ import org.kvj.foxtrot7.dispatcher.F7App;
 import org.kvj.foxtrot7.dispatcher.R;
 import org.kvj.foxtrot7.dispatcher.ui.MainConfiguration;
 
+import android.app.Notification;
 import android.app.Service;
 import android.content.Intent;
 
@@ -22,6 +23,9 @@ public class F7Service extends SuperService<F7Controller, F7App> {
 	@Override
 	public void onCreate() {
 		super.onCreate();
+		getNotification().flags |= Notification.FLAG_ONGOING_EVENT;
+		getNotification().flags |= Notification.FLAG_NO_CLEAR;
+		getNotification().flags |= -2; // PRIORITY_MIN
 		raiseNotification(R.drawable.ic_notification,
 				"Foxtrot 7 dispatcher is running", MainConfiguration.class);
 	}
