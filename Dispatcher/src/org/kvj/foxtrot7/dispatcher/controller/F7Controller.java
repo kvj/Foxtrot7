@@ -59,11 +59,11 @@ public class F7Controller {
 
 			@Override
 			public void run() {
-				Log.i(TAG, "About to auto close: " + device);
+				Log.d(TAG, "About to auto close: " + device);
 				synchronized (connections) {
 					if (System.currentTimeMillis() >= cancelTime) {
 						connections.remove(device);
-						Log.i(TAG, "Closing: " + device);
+						Log.d(TAG, "Closing: " + device);
 						try {
 							OutputStream out = socket.getOutputStream();
 							out.write(0);
@@ -116,7 +116,7 @@ public class F7Controller {
 			public F7MessagePlugin castAIDL(IBinder binder) {
 				return F7MessagePlugin.Stub.asInterface(binder);
 			}
-
+			
 		};
 		db = new DBProvider();
 		if (!db.open()) {
@@ -146,7 +146,7 @@ public class F7Controller {
 				connections.put(device, conn);
 				*/
 			} else {
-				Log.i(TAG, "Reusing connection: " + device);
+				Log.d(TAG, "Reusing connection: " + device);
 				return conn;
 			}
 			// Restart handler
@@ -172,17 +172,17 @@ public class F7Controller {
 		}
 		
 		private int readUntil(InputStream stream) throws IOException {
-			Log.i(TAG, "Will read four bytes");
+			Log.d(TAG, "Will read four bytes");
 			int result = 0;
 			for (int i = 0; i < 4; i++) {
 				int b = stream.read();
 				if (b<0) {
 					return -1;
 				}
-				Log.i(TAG, "Read byte "+i+" = "+b);
+				Log.d(TAG, "Read byte "+i+" = "+b);
 				result = (result << 8) + b;
 			}
-			Log.i(TAG, "Read byte "+result);
+			Log.d(TAG, "Read byte "+result);
 			return result;
 		}
 		
@@ -218,7 +218,7 @@ public class F7Controller {
 						readTotal += read;
 					}
 					String data = new String(chs, "utf-8");
-					Log.i(TAG, "Incoming data[" + size + "] - [" +
+					Log.d(TAG, "Incoming data[" + size + "] - [" +
 					readTotal + "]: " + data);
 					int result = 0;
 					try {
@@ -256,9 +256,9 @@ public class F7Controller {
 		public void run() {
 			try { // Accept errors
 				BluetoothSocket s = null;
-				Log.i(TAG, "About to begin listen: ");
+				Log.d(TAG, "About to begin listen: ");
 				while ((s = socket.accept()) != null) {
-					Log.i(TAG, "New connection accepted");
+					Log.d(TAG, "New connection accepted");
 					synchronized (connections) {
 						// Create new connection
 						ClientThread thread = new ClientThread(s);
@@ -300,10 +300,10 @@ public class F7Controller {
 		int result = 0;
 		for (int i = 0; i < 4; i++) {
 			int b = input.read();
-			Log.i(TAG, "Read byte "+i+" = "+b);
+			Log.d(TAG, "Read byte "+i+" = "+b);
 			result = (result << 8) + b;
 		}
-		Log.i(TAG, "Read byte "+result);
+		Log.d(TAG, "Read byte "+result);
 		return result;
 	}
 
@@ -326,11 +326,11 @@ public class F7Controller {
 			if (null == conn) {
 				throw new IOException("No connection to " + ctx.device);
 			}
-			synchronized (connections) {
+			synchronized (conn) {
 				OutputStream output = conn.socket.getOutputStream();
 				InputStream in = conn.socket.getInputStream();
 				byte[] bytes = data.getBytes("utf-8");
-				Log.i(TAG, "Sending: " + bytes.length + ", " + data.length());
+				Log.d(TAG, "Sending: " + bytes.length + ", " + data.length());
 				try {
 					intToByteArray(bytes.length, output);
 				} catch (Exception e) {
@@ -341,17 +341,15 @@ public class F7Controller {
 							conn.task.cancel();
 							connections.remove(ctx.device);
 							Log.w(TAG, "Retrying connection");
-							return send(data, ctx, false);
 						}
+						return send(data, ctx, false);
 					} else {
 						// Send failed
 						return F7Constants.F7_ERR_NETWORK;
 					}
 				}
-				Log.i(TAG, "Sending data");
 				output.write(bytes);
 				output.flush();
-				Log.i(TAG, "Sent data...");
 				return 0;
 			}
 		} catch (Exception e) {
