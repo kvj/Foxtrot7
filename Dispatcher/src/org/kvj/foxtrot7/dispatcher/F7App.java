@@ -4,6 +4,10 @@ import org.kvj.bravo7.ApplicationContext;
 import org.kvj.foxtrot7.dispatcher.controller.F7Controller;
 import org.kvj.foxtrot7.dispatcher.plugins.PluginsController;
 
+import android.content.Context;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
+
 public class F7App extends ApplicationContext {
 
 	@Override
@@ -12,4 +16,12 @@ public class F7App extends ApplicationContext {
 		publishBean(new PluginsController(this));
 	}
 
+	public static PowerManager.WakeLock getLock(String name) {
+		Context context = getInstance();
+		PowerManager mgr = (PowerManager) context
+				.getSystemService(Context.POWER_SERVICE);
+
+		WakeLock lock = mgr.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, name);
+		return lock;
+	}
 }

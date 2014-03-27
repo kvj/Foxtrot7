@@ -34,6 +34,7 @@ import android.content.IntentFilter;
 import android.database.Cursor;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.PowerManager.WakeLock;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Log;
@@ -164,11 +165,15 @@ public class F7Controller {
 	
 	class ClientThread extends Thread {
 		
+		private static final String LOCK_NAME = "F7";
 		BluetoothConnection connection;
+		private WakeLock lock;
 		
 		public ClientThread(BluetoothSocket s) {
 			connection = new BluetoothConnection();
 			connection.socket = s;
+			lock = F7App.getLock(LOCK_NAME);
+			lock.acquire();
 		}
 		
 		private int readUntil(InputStream stream) throws IOException {
@@ -241,6 +246,7 @@ public class F7Controller {
 			synchronized (connections) {
 				connections.remove(address);
 			}
+			lock.release();
 		}
 	}
 	
@@ -373,6 +379,7 @@ public class F7Controller {
 			JSONObject data = json.getJSONObject("data");
 			PJSONObject pdata = new PJSONObject(data.toString());
 			List<F7MessagePlugin> plugins = this.plugins.getPlugins();
+			Log.d(TAG, "Have plugins: "+plugins.size());
 			for (F7MessagePlugin pl : plugins) {
 				if (pl.onMessage(pdata, ctx)) {
 					return 0;
