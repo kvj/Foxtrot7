@@ -177,7 +177,7 @@ public class F7Controller {
 		}
 		
 		private int readUntil(InputStream stream) throws IOException {
-			Log.d(TAG, "Will read four bytes");
+			// Log.d(TAG, "Will read four bytes");
 			int result = 0;
 			for (int i = 0; i < 4; i++) {
 				int b = stream.read();
@@ -189,6 +189,18 @@ public class F7Controller {
 			}
 			Log.d(TAG, "Read byte "+result);
 			return result;
+		}
+		
+		private int readInto(InputStream in, byte[] buffer) throws IOException {
+			int readTotal = 0;
+			while (readTotal < buffer.length) {
+				int read = in.read(buffer, readTotal, buffer.length - readTotal);
+				if (-1 == read) {
+					return -1;
+				}
+				readTotal += read;
+			}
+			return readTotal;
 		}
 		
 		@Override
@@ -211,24 +223,27 @@ public class F7Controller {
 					}
 					int size = value;
 					byte[] chs = new byte[size];
-					int readTotal = 0;
-					while (readTotal < size) {
-						int read = in.read(chs, readTotal, size - readTotal);
-						if (-1 == read) {
-							Log.w(TAG, "Reached end: " + readTotal);
-							break;
-						}
-						// Log.i(TAG, "Read portion: " + read + ", " +
-						// readTotal + " " + size);
-						readTotal += read;
+					int read = readInto(in, chs);
+					if (-1 == read) {
+						Log.w(TAG, "Reached end: " + read);
+						break;
 					}
 					String data = new String(chs, "utf-8");
-					Log.d(TAG, "Incoming data[" + size + "] - [" +
-					readTotal + "]: " + data);
+					Log.d(TAG, "Incoming data[" + size + "] - "+ data);
 					int result = 0;
 					try {
 						JSONObject json = new JSONObject(data);
-						result = processIncomingJSON(address, json);
+						int dataSize = json.optInt("binary", 0);
+						byte[] binary = null;
+						if (dataSize>0) {
+							// Have binary data right after
+							binary = new byte[dataSize];
+							read = readInto(in, binary);
+							if (read <= 0) {
+								binary = null;
+							}
+						}
+						result = processIncomingJSON(address, json, binary);
 					} catch (Exception e) {
 						result = F7Constants.F7_ERR_DATA;
 					}
@@ -294,6 +309,9 @@ public class F7Controller {
 			if (ctx.serie > 0) { // Have serie
 				json.put("serie", ctx.serie);
 			}
+			if (ctx.binary != null && ctx.binary.length>0) {
+				json.put("binary", ctx.binary.length);
+			}
 			int result = send(json.toString(), ctx, true);
 			return result;
 		} catch (JSONException e) {
@@ -340,7 +358,7 @@ public class F7Controller {
 				try {
 					intToByteArray(bytes.length, output);
 				} catch (Exception e) {
-					Log.w(TAG, "Send failed, connection is broken?");
+					// Log.w(TAG, "Send failed, connection is broken?");
 					if (retry) {
 						// Close connection, create another
 						synchronized (connections) {
@@ -356,6 +374,9 @@ public class F7Controller {
 				}
 				output.write(bytes);
 				output.flush();
+				if (ctx.binary != null && ctx.binary.length>0) {
+					output.write(ctx.binary);
+				}
 				return 0;
 			}
 		} catch (Exception e) {
@@ -364,7 +385,7 @@ public class F7Controller {
 		return F7Constants.F7_ERR_NETWORK;
 	}
 
-	private int processIncomingJSON(String from, JSONObject json) {
+	private int processIncomingJSON(String from, JSONObject json, byte[] binary) {
 		try {
 			F7MessageContext ctx = new F7MessageContext();
 			ctx.device = from;
@@ -375,6 +396,9 @@ public class F7Controller {
 			}
 			if (json.has("serie")) {
 				ctx.serie = json.getLong("serie");
+			}
+			if (null != binary && binary.length>0) {
+				ctx.binary = binary;
 			}
 			JSONObject data = json.getJSONObject("data");
 			PJSONObject pdata = new PJSONObject(data.toString());

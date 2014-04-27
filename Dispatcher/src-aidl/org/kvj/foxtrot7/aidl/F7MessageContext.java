@@ -12,6 +12,7 @@ public class F7MessageContext implements Parcelable {
 	public long serie = 0;
 	public boolean resend = false;
 	public boolean broadcast = false;
+	public byte[] binary = null;
 
 	@Override
 	public int describeContents() {
@@ -27,6 +28,12 @@ public class F7MessageContext implements Parcelable {
 		dest.writeLong(serie);
 		dest.writeInt(resend ? 1 : 0);
 		dest.writeInt(broadcast ? 1 : 0);
+		if (null != binary && binary.length>0) {
+			dest.writeInt(binary.length);
+			dest.writeByteArray(binary);
+		} else {
+			dest.writeInt(0); // No binary data
+		}
 	}
 
 	public static final Parcelable.Creator<F7MessageContext> CREATOR = new Creator<F7MessageContext>() {
@@ -41,6 +48,14 @@ public class F7MessageContext implements Parcelable {
 			obj.serie = source.readLong();
 			obj.resend = source.readInt() > 0;
 			obj.broadcast = source.readInt() > 0;
+			try {
+				int binarySize = source.readInt();
+				if (binarySize>0) {
+					obj.binary = new byte[binarySize];
+					source.readByteArray(obj.binary);
+				}
+			} catch (Exception e) {
+			}
 			return obj;
 		}
 
