@@ -173,7 +173,6 @@ public class F7Controller {
 			connection = new BluetoothConnection();
 			connection.socket = s;
 			lock = F7App.getLock(LOCK_NAME);
-			lock.acquire();
 		}
 		
 		private int readUntil(InputStream stream) throws IOException {
@@ -184,7 +183,7 @@ public class F7Controller {
 				if (b<0) {
 					return -1;
 				}
-				Log.d(TAG, "Read byte "+i+" = "+b);
+				// Log.d(TAG, "Read byte "+i+" = "+b);
 				result = (result << 8) + b;
 			}
 			Log.d(TAG, "Read byte "+result);
@@ -231,6 +230,7 @@ public class F7Controller {
 					String data = new String(chs, "utf-8");
 					Log.d(TAG, "Incoming data[" + size + "] - "+ data);
 					int result = 0;
+					lock.acquire();
 					try {
 						JSONObject json = new JSONObject(data);
 						int dataSize = json.optInt("binary", 0);
@@ -246,6 +246,8 @@ public class F7Controller {
 						result = processIncomingJSON(address, json, binary);
 					} catch (Exception e) {
 						result = F7Constants.F7_ERR_DATA;
+					} finally {
+						lock.release();
 					}
 				}
 				connection.socket.close();
@@ -261,7 +263,6 @@ public class F7Controller {
 			synchronized (connections) {
 				connections.remove(address);
 			}
-			lock.release();
 		}
 	}
 	
