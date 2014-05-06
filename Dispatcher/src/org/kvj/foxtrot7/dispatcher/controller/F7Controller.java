@@ -1,5 +1,8 @@
 package org.kvj.foxtrot7.dispatcher.controller;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -33,6 +36,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
 import android.os.Binder;
+import android.os.Environment;
 import android.os.IBinder;
 import android.os.PowerManager.WakeLock;
 import android.os.RemoteException;
@@ -202,6 +206,37 @@ public class F7Controller {
 			return readTotal;
 		}
 		
+		private String readIntoFile(InputStream in, int size) throws IOException {
+			int readTotal = 0;
+			File cache = F7App.getInstance().getExternalCacheDir();
+			if (null == cache) {
+				cache = F7App.getInstance().getExternalFilesDir(null);
+			}
+			if (null == cache) {
+				cache = Environment.getExternalStorageDirectory();
+			}
+			File tempFile = new File(cache, "f7b"+System.currentTimeMillis()+".bin");
+			Log.d(TAG, "readIntoFile: cache: " + cache.getAbsolutePath()+", "+tempFile.getAbsolutePath());
+			FileOutputStream outStream = new FileOutputStream(tempFile);
+			tempFile.deleteOnExit();
+			byte[] buffer = new byte[1024];
+			Log.d(TAG, "readIntoFile: read start " + size);
+			while (readTotal < size) {
+				int read = in.read(buffer);
+				if (-1 == read) {
+					outStream.close();
+					Log.w(TAG, "readIntoFile: no data");
+					return null;
+				}
+				readTotal += read;
+				// Log.d(TAG, "readIntoFile: " + size+", "+readTotal);
+				outStream.write(buffer, 0, read);
+			}
+			outStream.close();
+			Log.d(TAG, "readIntoFile done: " + size+", "+readTotal+", "+tempFile.getAbsolutePath());
+			return tempFile.getAbsolutePath();
+		}
+		
 		@Override
 		public void run() {
 			Log.i(TAG, "Incoming bt connection: " + connection.socket.getRemoteDevice().getName());
@@ -234,17 +269,19 @@ public class F7Controller {
 					try {
 						JSONObject json = new JSONObject(data);
 						int dataSize = json.optInt("binary", 0);
-						byte[] binary = null;
+						String binaryFile = null;
 						if (dataSize>0) {
+							Log.d(TAG, "Also have binary: "+dataSize);
+							String tempFile = readIntoFile(in, dataSize);
 							// Have binary data right after
-							binary = new byte[dataSize];
-							read = readInto(in, binary);
-							if (read <= 0) {
-								binary = null;
+							Log.d(TAG, "Saved: "+binaryFile);
+							if (null != tempFile) {
+								binaryFile  = tempFile;
 							}
 						}
-						result = processIncomingJSON(address, json, binary);
+						result = processIncomingJSON(address, json, binaryFile);
 					} catch (Exception e) {
+						Log.e(TAG, "Failed to read data:", e);
 						result = F7Constants.F7_ERR_DATA;
 					} finally {
 						lock.release();
@@ -310,9 +347,11 @@ public class F7Controller {
 			if (ctx.serie > 0) { // Have serie
 				json.put("serie", ctx.serie);
 			}
-			if (ctx.binary != null && ctx.binary.length>0) {
-				json.put("binary", ctx.binary.length);
+			if (!TextUtils.isEmpty(ctx.binaryFile)) {
+				File file = new File(ctx.binaryFile);
+				json.put("binary", file.length());
 			}
+			Log.d(TAG, "Sending via BT: "+json);
 			int result = send(json.toString(), ctx, true);
 			return result;
 		} catch (JSONException e) {
@@ -375,8 +414,14 @@ public class F7Controller {
 				}
 				output.write(bytes);
 				output.flush();
-				if (ctx.binary != null && ctx.binary.length>0) {
-					output.write(ctx.binary);
+				if (!TextUtils.isEmpty(ctx.binaryFile)) {
+					FileInputStream binaryStream = new FileInputStream(ctx.binaryFile);
+					byte[] buffer = new byte[1024];
+					int read = 0;
+					while ((read = binaryStream.read(buffer))>0) {
+						output.write(buffer, 0, read);
+					}
+					binaryStream.close();
 				}
 				return 0;
 			}
@@ -386,7 +431,7 @@ public class F7Controller {
 		return F7Constants.F7_ERR_NETWORK;
 	}
 
-	private int processIncomingJSON(String from, JSONObject json, byte[] binary) {
+	private int processIncomingJSON(String from, JSONObject json, String binaryFile) {
 		try {
 			F7MessageContext ctx = new F7MessageContext();
 			ctx.device = from;
@@ -398,8 +443,8 @@ public class F7Controller {
 			if (json.has("serie")) {
 				ctx.serie = json.getLong("serie");
 			}
-			if (null != binary && binary.length>0) {
-				ctx.binary = binary;
+			if (null != binaryFile) {
+				ctx.binaryFile = binaryFile;
 			}
 			JSONObject data = json.getJSONObject("data");
 			PJSONObject pdata = new PJSONObject(data.toString());
