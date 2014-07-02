@@ -152,6 +152,7 @@ public class F7Controller {
 					conn.device = device;
 					conn.socket = socket;
 				} catch (Exception e) {
+                    logger.e(e, "Connection error");
 					return null;
 				}
 				connections.put(device, conn);
@@ -327,6 +328,7 @@ public class F7Controller {
 
         public void open() {
             try {
+                logger.d("Opening:", type);
                 socket = adapter.listenUsingRfcommWithServiceRecord("Foxtrot7_"+type, uuid);
                 active = true;
                 start();
@@ -420,8 +422,10 @@ public class F7Controller {
                 logger.d("Sending: ", bytes.length, data.length());
 				try {
 					intToByteArray(bytes.length, output);
+                    output.write(bytes);
+                    output.flush();
 				} catch (Exception e) {
-					// Log.w(TAG, "Send failed, connection is broken?");
+					logger.w("Send failed, connection is broken?");
 					if (retry) {
 						// Close connection, create another
 						synchronized (connections) {
@@ -432,11 +436,10 @@ public class F7Controller {
 						return send(data, ctx, false);
 					} else {
 						// Send failed
+                        logger.w("Send failed");
 						return F7Constants.F7_ERR_NETWORK;
 					}
 				}
-				output.write(bytes);
-				output.flush();
 				if (!TextUtils.isEmpty(ctx.binaryFile)) {
 					FileInputStream binaryStream = new FileInputStream(ctx.binaryFile);
 					byte[] buffer = new byte[1024];
@@ -450,6 +453,7 @@ public class F7Controller {
                 if (conn.serverType == ServerType.OneWay) {
                     // Check receive result
                     result = in.read();
+                    logger.d("Receive result:", result);
                 }
 				return result;
 			}
@@ -480,13 +484,13 @@ public class F7Controller {
             logger.d("Have plugins:", plugins.size());
 			for (F7MessagePlugin pl : plugins) {
 				if (pl.onMessage(pdata, ctx)) {
-					return 0;
+					return F7Constants.F7_SUCCESS;
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return 0;
+        return F7Constants.F7_ERR_DATA;
 	}
 
 	public List<DeviceInfo> getAllDevices() {
@@ -545,19 +549,23 @@ public class F7Controller {
 	private int findAndSend(JSONObject data, F7MessageContext ctx) {
 		db.getDatabase().beginTransaction();
 		try {
-			ctx.id = nextID();
+            if (ctx.id == 0) {
+                ctx.id = nextID();
+            }
 			String where = "plugin=?";
 			String[] whereArgs = { ctx.from };
 			if (!TextUtils.isEmpty(ctx.device)) {
-				where += " and device=?";
-				whereArgs = new String[] { ctx.from, ctx.device };
+				// where += " and device=?";
+				// whereArgs = new String[] { ctx.from, ctx.device.toUpperCase().trim() };
 			}
+            logger.d("Selecting:", where, whereArgs.length);
 			Cursor c = db.getDatabase().query("pairs", new String[] { "active", "device", "id" }, where, whereArgs,
 					null, null, "active desc");
 			while (c.moveToNext()) {
 				String to = c.getString(1);
 				int active = c.getInt(0);
 				String id = c.getString(2);
+                logger.d("Sending:", id, to, ctx.device);
 				ctx.device = to;
 				int result = send(data, ctx);
 				if (result == 0) {
@@ -588,6 +596,7 @@ public class F7Controller {
 				// TODO: implement saving
 			}
 			db.getDatabase().setTransactionSuccessful();
+            logger.w("No devices:", ctx.device, ctx.from);
 			return F7Constants.F7_ERR_NETWORK; // No devices
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -607,6 +616,7 @@ public class F7Controller {
 
 		@Override
 		public int send(PJSONObject data, F7MessageContext ctx) throws RemoteException {
+            logger.d("send from remote");
 			return findAndSend(data, ctx);
 		}
 	};
@@ -698,7 +708,7 @@ public class F7Controller {
 				result.add(info);
 			}
 			c.close();
-            logger.i("getPluginDevices:", plugin, result.size());
+            logger.i("getPluginDevices:", plugin, result);
 		} catch (Exception e) {
             logger.e(e, "Error getting devices:");
 		}
@@ -717,7 +727,7 @@ public class F7Controller {
 			c.close();
 			db.getDatabase().beginTransaction();
 			ContentValues values = new ContentValues();
-			values.put("device", device);
+			values.put("device", device.toUpperCase());
 			values.put("plugin", plugin);
 			long id = db.getDatabase().insert("pairs", null, values);
 			boolean result = false;

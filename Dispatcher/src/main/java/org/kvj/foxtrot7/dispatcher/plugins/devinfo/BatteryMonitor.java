@@ -29,7 +29,7 @@ public class BatteryMonitor extends BroadcastReceiver {
 		controller.getDevInfoPlugin().batteryStatus = status;
 		int temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0);
 		controller.getDevInfoPlugin().batteryTemp = temp;
-		Log.i(TAG, "Battery status detected: " + level + ", " + status + ", " + temp);
+		// Log.i(TAG, "Battery status detected: " + level + ", " + status + ", " + temp);
 		if (prevStatus != status || Math.abs(level - prevLevel) >= LEVEL_DIFF) {
 			prevLevel = level;
 			prevStatus = status;

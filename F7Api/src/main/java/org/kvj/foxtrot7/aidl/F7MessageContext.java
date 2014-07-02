@@ -5,7 +5,18 @@ import android.os.Parcelable;
 
 public class F7MessageContext implements Parcelable {
 
-	public long id = 0;
+    private static long lastID = System.currentTimeMillis();
+
+    public static synchronized long nextID() {
+        long next = System.currentTimeMillis();
+        if (next <= lastID) {
+            next = lastID+1;
+        }
+        lastID = next;
+        return next;
+    }
+
+    public long id = 0;
 	public long inResponse = 0;
 	public String from = "";
 	public String device = "";
@@ -62,5 +73,11 @@ public class F7MessageContext implements Parcelable {
 		ctx.device = this.device;
 		return ctx;
 	}
+
+    public static F7MessageContext newInstance() {
+        F7MessageContext ctx = new F7MessageContext();
+        ctx.id = nextID();
+        return ctx;
+    }
 
 }
