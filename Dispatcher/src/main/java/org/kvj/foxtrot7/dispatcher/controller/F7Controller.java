@@ -95,6 +95,24 @@ public class F7Controller {
 		long cancelTime;
 
 		TimerTask task = null;
+
+        public synchronized void close() {
+            try {
+                if (socket.isConnected()) {
+                    OutputStream out = socket.getOutputStream();
+                    out.write(0);
+                    out.flush();
+                }
+            } catch (Exception e) {
+            }
+            try {
+                socket.close();
+            } catch (Exception e) {
+            }
+            if (null != task) {
+                task.cancel();
+            }
+        }
 	}
 
 	private class BTStateListener extends BroadcastReceiver {
@@ -145,8 +163,19 @@ public class F7Controller {
 				UUID uuid = UUID.fromString(F7_V2_UUID);
 				try {
 					logger.d("Creating new connection: " + device);
-					BluetoothDevice bdevice = adapter.getRemoteDevice(device);
-					BluetoothSocket socket = bdevice.createRfcommSocketToServiceRecord(uuid);
+					BluetoothDevice bdevice = null;
+                    for (BluetoothDevice bluetoothDevice : adapter.getBondedDevices()) {
+                        logger.d("We know device:", bluetoothDevice.getName(), bluetoothDevice.getAddress(), bluetoothDevice.getBondState());
+                        if (bluetoothDevice.getAddress().equalsIgnoreCase(device)) {
+                            bdevice = bluetoothDevice;
+                            break;
+                        }
+                    }
+                    if (null == bdevice) {
+                        logger.e("Device not found:", device);
+                        return null;
+                    }
+                    BluetoothSocket socket = bdevice.createInsecureRfcommSocketToServiceRecord(uuid);
 					socket.connect();
 					conn = new BluetoothConnection(ServerType.OneWay);
 					conn.device = device;
@@ -296,17 +325,13 @@ public class F7Controller {
                         out.flush();
                     }
 				}
-				connection.socket.close();
 				// Log.i(TAG, "Incoming bt connection done");
 			} catch (Exception e) {
                 logger.e(e, "Error reading BT:");
-				try {
-					connection.socket.close();
-				} catch (IOException e1) {
-					e1.printStackTrace();
-				}
-			}
-			synchronized (connections) {
+			} finally {
+                connection.close();
+            }
+            synchronized (connections) {
 				connections.remove(address);
 			}
 		}
@@ -556,8 +581,8 @@ public class F7Controller {
 			String where = "plugin=?";
 			String[] whereArgs = { ctx.from };
 			if (!TextUtils.isEmpty(ctx.device)) {
-				// where += " and device=?";
-				// whereArgs = new String[] { ctx.from, ctx.device.toUpperCase().trim() };
+				where += " and device=?";
+				whereArgs = new String[] { ctx.from, ctx.device.toUpperCase().trim() };
 			}
             logger.d("Selecting:", where, whereArgs.length);
 			Cursor c = db.getDatabase().query("pairs", new String[] { "active", "device", "id" }, where, whereArgs,
