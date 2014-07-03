@@ -548,6 +548,7 @@ public class F7Controller {
 
 	private int findAndSend(JSONObject data, F7MessageContext ctx) {
 		db.getDatabase().beginTransaction();
+        List<String> targetDevices = new ArrayList<>();
 		try {
             if (ctx.id == 0) {
                 ctx.id = nextID();
@@ -566,44 +567,29 @@ public class F7Controller {
 				int active = c.getInt(0);
 				String id = c.getString(2);
                 logger.d("Sending:", id, to, ctx.device);
-				ctx.device = to;
-				int result = send(data, ctx);
-				if (result == 0) {
-					if (active == 0) {
-						// Not active
-						ContentValues values = new ContentValues();
-						values.put("active", 1);
-						db.getDatabase().update("pairs", values, "id=?", new String[] { id });
-					}
-					if (!ctx.broadcast) {
-						// Not a broadcast - done
-						db.getDatabase().setTransactionSuccessful();
-						c.close();
-						return result;
-					}
-				} else {
-					if (active != 0) {
-						// Active
-						ContentValues values = new ContentValues();
-						values.put("active", 0);
-						db.getDatabase().update("pairs", values, "id=?", new String[] { id });
-					}
-				}
+                targetDevices.add(to);
 			}
 			c.close();
-			if (ctx.resend) {
-				// Need to send
-				// TODO: implement saving
-			}
-			db.getDatabase().setTransactionSuccessful();
-            logger.w("No devices:", ctx.device, ctx.from);
-			return F7Constants.F7_ERR_NETWORK; // No devices
 		} catch (Exception e) {
 			e.printStackTrace();
+            return F7Constants.F7_ERR_DATA; // No devices
 		} finally {
 			db.getDatabase().endTransaction();
 		}
-		return F7Constants.F7_ERR_HARDWARE;
+        if (targetDevices.isEmpty()) {
+            logger.w("No devices:", ctx.device, ctx.from);
+            return F7Constants.F7_ERR_DATA;
+        }
+        // Send to all target devices
+        int worstResult = F7Constants.F7_SUCCESS;
+        for (String device : targetDevices) {
+            ctx.device = device;
+            int result = send(data, ctx);
+            if (result != F7Constants.F7_SUCCESS) {
+                worstResult = result;
+            }
+        }
+        return worstResult;
 	}
 
 	private F7MessageProvider.Stub provider = new F7MessageProvider.Stub() {
