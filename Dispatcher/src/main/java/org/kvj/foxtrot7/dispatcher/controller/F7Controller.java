@@ -13,6 +13,7 @@ import android.database.Cursor;
 import android.os.Binder;
 import android.os.Environment;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.RemoteException;
 import android.text.TextUtils;
@@ -44,6 +45,8 @@ import java.util.TimerTask;
 import java.util.UUID;
 
 public class F7Controller {
+    private static final String LOCK_NAME = "F7";
+    private static final String LOCK_NAME_CLIENT = "F7_CLIENT";
 
     Logger logger = Logger.forInstance(this);
 
@@ -62,8 +65,14 @@ public class F7Controller {
 
 	class BluetoothConnection {
 
-        BluetoothConnection(ServerType serverType) {
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+
+        BluetoothConnection(ServerType serverType, BluetoothSocket socket) throws IOException {
             this.serverType = serverType;
+            this.socket = socket;
+            this.inputStream = socket.getInputStream();
+            this.outputStream = socket.getOutputStream();
         }
 
         ServerType serverType;
@@ -75,15 +84,8 @@ public class F7Controller {
 				logger.d("About to auto close:", device);
 				synchronized (connections) {
 					if (System.currentTimeMillis() >= cancelTime) {
-						connections.remove(device);
                         logger.d("Closing:", device);
-						try {
-							OutputStream out = socket.getOutputStream();
-							out.write(0);
-							out.flush();
-							socket.close();
-						} catch (Exception e) {
-						}
+                        close();
 					}
 				}
 			}
@@ -98,10 +100,12 @@ public class F7Controller {
 
         public synchronized void close() {
             try {
+                synchronized (connections) {
+                    connections.remove(device);
+                }
                 if (socket.isConnected()) {
-                    OutputStream out = socket.getOutputStream();
-                    out.write(0);
-                    out.flush();
+                    outputStream.write(0);
+                    outputStream.flush();
                 }
             } catch (Exception e) {
             }
@@ -175,16 +179,15 @@ public class F7Controller {
                         logger.e("Device not found:", device);
                         return null;
                     }
-                    BluetoothSocket socket = bdevice.createInsecureRfcommSocketToServiceRecord(uuid);
+                    BluetoothSocket socket = bdevice.createRfcommSocketToServiceRecord(uuid);
 					socket.connect();
-					conn = new BluetoothConnection(ServerType.OneWay);
+					conn = new BluetoothConnection(ServerType.OneWay, socket);
 					conn.device = device;
-					conn.socket = socket;
+                    connections.put(device, conn);
 				} catch (Exception e) {
                     logger.e(e, "Connection error");
 					return null;
 				}
-				connections.put(device, conn);
 			} else {
 				logger.d("Reusing connection: " + device);
 				return conn;
@@ -201,14 +204,12 @@ public class F7Controller {
 	}
 	
 	class ClientThread extends Thread {
-		
-		private static final String LOCK_NAME = "F7";
+
 		BluetoothConnection connection;
 		private WakeLock lock;
 		
-		public ClientThread(BluetoothSocket s, ServerType type) {
-			connection = new BluetoothConnection(type);
-			connection.socket = s;
+		public ClientThread(BluetoothSocket s, ServerType type) throws IOException {
+			connection = new BluetoothConnection(type, s);
 			lock = F7App.getLock(LOCK_NAME);
 		}
 		
@@ -278,9 +279,9 @@ public class F7Controller {
 					// BufferedReader br = new BufferedReader(
 					// new InputStreamReader(s.getInputStream(),
 					// "utf-8"));
-				InputStream in = connection.socket.getInputStream();
+				InputStream in = connection.inputStream;
 				// Reader r = new InputStreamReader(in, "utf-8");
-				OutputStream out = connection.socket.getOutputStream();
+				OutputStream out = connection.outputStream;
 				
 				while (true) {
 					int value = readUntil(in);
@@ -290,16 +291,16 @@ public class F7Controller {
 					}
 					int size = value;
 					byte[] chs = new byte[size];
-					int read = readInto(in, chs);
-					if (-1 == read) {
-						logger.w("Reached end:", read);
-						break;
-					}
-					String data = new String(chs, "utf-8");
-                    logger.d("Incoming data[" + size + "] - ", data);
-					int result = 0;
-					lock.acquire();
-					try {
+                    lock.acquire();
+                    int result = 0;
+                    try {
+                        int read = readInto(in, chs);
+                        if (-1 == read) {
+                            logger.w("Reached end:", read);
+                            break;
+                        }
+                        String data = new String(chs, "utf-8");
+                        logger.d("Incoming data[" + size + "] - ", data);
 						JSONObject json = new JSONObject(data);
 						int dataSize = json.optInt("binary", 0);
 						String binaryFile = null;
@@ -313,27 +314,22 @@ public class F7Controller {
 							}
 						}
 						result = processIncomingJSON(address, json, binaryFile);
+                        if (connection.serverType == ServerType.OneWay) {
+                            // Write result
+                            out.write(result);
+                            out.flush();
+                        }
 					} catch (Exception e) {
                         logger.e(e, "Failed to read data:");
-						result = F7Constants.F7_ERR_DATA;
 					} finally {
-						lock.release();
-					}
-                    if (connection.serverType == ServerType.OneWay) {
-                        // Write result
-                        out.write(result);
-                        out.flush();
+                        lock.release();
                     }
-				}
-				// Log.i(TAG, "Incoming bt connection done");
+                }
 			} catch (Exception e) {
                 logger.e(e, "Error reading BT:");
 			} finally {
                 connection.close();
             }
-            synchronized (connections) {
-				connections.remove(address);
-			}
 		}
 	}
 
@@ -435,29 +431,42 @@ public class F7Controller {
 			return F7Constants.F7_ERR_HARDWARE;
 		}
 		// Log.i(TAG, "About to send data " + data + " to " + ctx.device);
+        PowerManager.WakeLock lock = F7App.getLock(LOCK_NAME_CLIENT);
+        lock.acquire();
 		try { // Bluetooth errors
 			BluetoothConnection conn = getConnection(ctx.device);
 			if (null == conn) {
 				throw new IOException("No connection to " + ctx.device);
 			}
 			synchronized (conn) {
-				OutputStream output = conn.socket.getOutputStream();
-				InputStream in = conn.socket.getInputStream();
+				OutputStream output = conn.outputStream;
+				InputStream in = conn.inputStream;
 				byte[] bytes = data.getBytes("utf-8");
                 logger.d("Sending: ", bytes.length, data.length());
+                int result = F7Constants.F7_SUCCESS;
 				try {
 					intToByteArray(bytes.length, output);
                     output.write(bytes);
                     output.flush();
+                    if (!TextUtils.isEmpty(ctx.binaryFile)) {
+                        FileInputStream binaryStream = new FileInputStream(ctx.binaryFile);
+                        byte[] buffer = new byte[1024];
+                        int read = 0;
+                        while ((read = binaryStream.read(buffer))>0) {
+                            output.write(buffer, 0, read);
+                        }
+                        binaryStream.close();
+                    }
+                    if (conn.serverType == ServerType.OneWay) {
+                        // Check receive result
+                        result = in.read();
+                        logger.d("Receive result:", result);
+                    }
 				} catch (Exception e) {
 					logger.w("Send failed, connection is broken?");
+                    conn.close();
 					if (retry) {
 						// Close connection, create another
-						synchronized (connections) {
-							conn.task.cancel();
-							connections.remove(ctx.device);
-                            logger.w("Retrying connection");
-						}
 						return send(data, ctx, false);
 					} else {
 						// Send failed
@@ -465,27 +474,14 @@ public class F7Controller {
 						return F7Constants.F7_ERR_NETWORK;
 					}
 				}
-				if (!TextUtils.isEmpty(ctx.binaryFile)) {
-					FileInputStream binaryStream = new FileInputStream(ctx.binaryFile);
-					byte[] buffer = new byte[1024];
-					int read = 0;
-					while ((read = binaryStream.read(buffer))>0) {
-						output.write(buffer, 0, read);
-					}
-					binaryStream.close();
-				}
-                int result = F7Constants.F7_SUCCESS;
-                if (conn.serverType == ServerType.OneWay) {
-                    // Check receive result
-                    result = in.read();
-                    logger.d("Receive result:", result);
-                }
 				return result;
 			}
 		} catch (Exception e) {
             logger.e(e, "Error sending");
-		}
-		return F7Constants.F7_ERR_NETWORK;
+		} finally {
+            lock.release();
+        }
+        return F7Constants.F7_ERR_NETWORK;
 	}
 
 	private int processIncomingJSON(String from, JSONObject json, String binaryFile) {
