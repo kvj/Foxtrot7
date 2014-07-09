@@ -20,10 +20,30 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_7
         targetCompatibility JavaVersion.VERSION_1_7
     }
+    androidAutoVersion(defaultConfig, "0.1.")
+    signingConfigs {
+        debug {
+        }
+        release {
+        }
+    }
+    androidSetupSignConfig(signingConfigs.debug)
+    androidSetupSignConfig(signingConfigs.release)
+    buildTypes {
+
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.release
+            androidEnablePushLink(project, applicationVariants, assembleRelease)
+        }
+    }
 }
 
 dependencies {
     compile project(':Lima1Common')
     compile project(':F7Api')
+    compile files('libs/PushLinkAndroid-5.1.0.jar')
     compile 'com.android.support:appcompat-v7:+'
 }
